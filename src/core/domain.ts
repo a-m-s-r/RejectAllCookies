@@ -5,6 +5,7 @@ export type ActionIntent =
   | 'openPreferences'
   | 'disablePurpose'
   | 'disableVendor'
+  | 'advanceVendorList'
   | 'objectLegitimateInterest'
   | 'savePreferences'
   | 'dismissAfterReject';
@@ -31,8 +32,28 @@ export interface Outcome {
   readonly reason: string;
   readonly adapter?: string;
   readonly actions: readonly ActionIntent[];
+  readonly details?: OutcomeDetails;
 }
 
+export interface OutcomeDetails {
+  readonly vendorCoverage?: 'not_present' | 'ui_traversal_complete' | 'incomplete' | 'unverified';
+}
+
+const SAFE_AUTOMATIC_INTENTS: ReadonlySet<string> = new Set<ActionIntent>([
+  'rejectAll',
+  'openPreferences',
+  'disablePurpose',
+  'disableVendor',
+  'advanceVendorList',
+  'objectLegitimateInterest',
+  'savePreferences',
+  'dismissAfterReject',
+]);
+
 export function assertSafeAction(action: ConsentAction): void {
-  if (!action.evidence.length) throw new Error(`${PRIVACY_INVARIANT}: action has no semantic evidence`);
+  if (!SAFE_AUTOMATIC_INTENTS.has(action.intent)) {
+    throw new Error(`${PRIVACY_INVARIANT}: unsafe automatic intent ${String(action.intent)}`);
+  }
+  if (!action.evidence.length)
+    throw new Error(`${PRIVACY_INVARIANT}: action has no semantic evidence`);
 }

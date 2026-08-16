@@ -2,7 +2,7 @@
 
 Minimum Consent is a local, deterministic WebExtension that attempts the least optional consent a site exposes. It never intentionally accepts optional processing to dismiss a dialog.
 
-The project is in an early engineering release. The semantic core, conservative generic first-layer handling, and initial OneTrust/Cookiebot fingerprints exist; comprehensive CMP preference, vendor, legitimate-interest, frame-coordination, and real-browser validation do not yet exist.
+The project is in an early engineering release. The semantic core, conservative generic settings workflow, bounded vendor traversal, frame coordination, and fixture-backed major-CMP direct-rejection adapters exist. Comprehensive CMP-specific preference/vendor flows and real-browser certification are not complete.
 
 ## Development
 
@@ -25,4 +25,4 @@ See [architecture](docs/ARCHITECTURE.md), [testing](docs/TESTING.md), and [contr
 - Firefox desktop MV3: configured, not yet exercised in this environment.
 - Firefox for Android: documented test procedure only; support is not claimed yet.
 
-Licensed under MIT.
+Source is available under the [PolyForm Noncommercial License 1.0.0](LICENSE). Commercial use and resale are not permitted by that license. Required attribution: Anastasia (ATech / Intellegacy).

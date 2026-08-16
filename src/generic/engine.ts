@@ -4,12 +4,14 @@ import { discoverSurfaces } from '../core/detection/surface';
 import type { ConsentAction } from '../core/domain';
 import { executeAction } from '../core/execution/execute';
 import { planFirstAction, planPreferenceAction } from '../core/planning/planner';
+import { VendorWalker, type VendorCoverage } from '../core/vendors/walker';
 
 export interface InteractionPlan {
   readonly action: ConsentAction;
   readonly adapter?: string;
   readonly confidence: number;
   readonly dedicated: boolean;
+  readonly vendorCoverage?: VendorCoverage;
 }
 
 export type Inspection = InteractionPlan | EngineResult;
@@ -19,24 +21,47 @@ export function isInteractionPlan(inspection: Inspection): inspection is Interac
 }
 
 function isProgressAction(action: ConsentAction): boolean {
-  return ['openPreferences', 'disablePurpose', 'disableVendor', 'objectLegitimateInterest'].includes(
-    action.intent,
-  );
+  return [
+    'openPreferences',
+    'disablePurpose',
+    'disableVendor',
+    'objectLegitimateInterest',
+    'advanceVendorList',
+  ].includes(action.intent);
 }
 
 export class ConsentEngine {
   private preferencesOpened = false;
   private privacyModified = false;
+  private readonly performedTargets = new Set<Element>();
+  private readonly vendorWalker = new VendorWalker();
+
+  private planPreferences(
+    surface: Parameters<typeof planPreferenceAction>[0],
+    adapter?: (typeof CMP_ADAPTERS)[number],
+  ): ConsentAction | null {
+    const planner = adapter?.planPreferences
+      ? (allowSave: boolean) =>
+          adapter.planPreferences?.(surface, allowSave, this.performedTargets) ?? null
+      : (allowSave: boolean) => planPreferenceAction(surface, allowSave, this.performedTargets);
+    const privacyAction = planner(false);
+    if (privacyAction) return privacyAction;
+    const vendorAdvance = this.vendorWalker.nextAction(surface);
+    if (vendorAdvance) return vendorAdvance;
+    return planner(this.privacyModified && this.vendorWalker.allowsSave(surface));
+  }
 
   inspect(doc: Document = document): Inspection {
     for (const adapter of CMP_ADAPTERS) {
       const surface = adapter.detect(doc);
       if (!surface) continue;
       const action =
-        (this.preferencesOpened
-          ? planPreferenceAction(surface, this.privacyModified)
-          : null) ?? adapter.plan(surface);
-      if (!action) {
+        (this.preferencesOpened ? this.planPreferences(surface, adapter) : null) ??
+        adapter.plan(surface);
+      const repeatable = action?.intent === 'advanceVendorList';
+      const freshAction =
+        action && (repeatable || !this.performedTargets.has(action.target)) ? action : null;
+      if (!freshAction) {
         return {
           status: 'unsupported',
           reason: 'Known CMP has no safe available action',
@@ -45,7 +70,15 @@ export class ConsentEngine {
           confidence: surface.confidence,
         };
       }
-      return { action, adapter: adapter.id, confidence: surface.confidence, dedicated: true };
+      return {
+        action: freshAction,
+        adapter: adapter.id,
+        confidence: surface.confidence,
+        dedicated: true,
+        ...(freshAction.intent === 'savePreferences'
+          ? { vendorCoverage: this.vendorWalker.coverage(surface) }
+          : {}),
+      };
     }
 
     const surface = discoverSurfaces(doc)[0];
@@ -57,9 +90,8 @@ export class ConsentEngine {
       };
     }
     const action =
-      (this.preferencesOpened
-        ? planPreferenceAction(surface, this.privacyModified)
-        : null) ?? planFirstAction(surface);
+      (this.preferencesOpened ? this.planPreferences(surface) : null) ??
+      planFirstAction(surface, this.performedTargets);
     if (!action) {
       return {
         status: 'unsupported',
@@ -68,7 +100,14 @@ export class ConsentEngine {
         confidence: surface.confidence,
       };
     }
-    return { action, confidence: surface.confidence, dedicated: false };
+    return {
+      action,
+      confidence: surface.confidence,
+      dedicated: false,
+      ...(action.intent === 'savePreferences'
+        ? { vendorCoverage: this.vendorWalker.coverage(surface) }
+        : {}),
+    };
   }
 
   execute(plan: InteractionPlan, doc: Document = document): EngineResult {
@@ -83,6 +122,7 @@ export class ConsentEngine {
         confidence: plan.confidence,
       };
     }
+    if (action.intent !== 'advanceVendorList') this.performedTargets.add(action.target);
 
     if (action.intent === 'openPreferences') this.preferencesOpened = true;
     if (
@@ -110,13 +150,16 @@ export class ConsentEngine {
     return {
       status: verified ? 'rejected_verified' : 'rejected_unverified',
       reason: verified
-        ? 'Consent surface disappeared after rejection'
+        ? verification.reason
         : action.intent === 'savePreferences'
           ? 'Privacy-preserving preferences saved; persistence not proven'
-          : verification?.reason ?? 'Safe rejection executed; persistence not proven',
+          : (verification?.reason ?? 'Safe rejection executed; persistence not proven'),
       ...adapterMetadata,
       actions: [action.intent],
       confidence: plan.confidence,
+      ...(action.intent === 'savePreferences' && plan.vendorCoverage
+        ? { details: { vendorCoverage: plan.vendorCoverage } }
+        : {}),
     };
   }
 

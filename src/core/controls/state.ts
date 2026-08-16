@@ -1,7 +1,11 @@
 export type ControlState = 'on' | 'off' | 'unknown';
 
 export function readControlState(element: HTMLElement): ControlState {
-  if (element instanceof HTMLInputElement && (element.type === 'checkbox' || element.type === 'radio')) return element.checked ? 'on' : 'off';
+  if (
+    element instanceof HTMLInputElement &&
+    (element.type === 'checkbox' || element.type === 'radio')
+  )
+    return element.checked ? 'on' : 'off';
   const ariaChecked = element.getAttribute('aria-checked');
   if (ariaChecked === 'true') return 'on';
   if (ariaChecked === 'false') return 'off';

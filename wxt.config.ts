@@ -8,6 +8,9 @@ export default defineConfig({
     permissions: ['storage', 'activeTab'],
     host_permissions: ['<all_urls>'],
     action: { default_title: 'Minimum Consent' },
+    content_security_policy: {
+      extension_pages: "script-src 'self'; object-src 'none'; base-uri 'none'",
+    },
     browser_specific_settings: {
       gecko: {
         id: 'minimum-consent@example.invalid',

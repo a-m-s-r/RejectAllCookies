@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Minimum Consent settings</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Minimum Consent settings</h1>
+      <p>
+        Automation is paused on these exact hostnames. Removing a host takes effect on its next page
+        load.
+      </p>
+      <form id="add-form">
+        <label for="host">Pause another hostname</label>
+        <div class="row">
+          <input id="host" type="text" inputmode="url" placeholder="example.com" required /><button
+            type="submit"
+          >
+            Add
+          </button>
+        </div>
+        <p id="error" role="alert"></p>
+      </form>
+      <ul id="hosts" aria-label="Paused hostnames"></ul>
+      <p id="empty">No paused sites.</p>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

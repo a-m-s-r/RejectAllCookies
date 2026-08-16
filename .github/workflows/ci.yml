@@ -25,6 +25,7 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test:coverage
+      - run: pnpm test:performance
       - run: pnpm build
       - run: pnpm build:firefox
       - run: pnpm web-ext:lint
