@@ -52,7 +52,7 @@ const SAFE_AUTOMATIC_INTENTS: ReadonlySet<string> = new Set<ActionIntent>([
 
 export function assertSafeAction(action: ConsentAction): void {
   if (!SAFE_AUTOMATIC_INTENTS.has(action.intent)) {
-    throw new Error(`${PRIVACY_INVARIANT}: unsafe automatic intent ${String(action.intent)}`);
+    throw new Error(`${PRIVACY_INVARIANT}: unsafe automatic intent ${action.intent}`);
   }
   if (!action.evidence.length)
     throw new Error(`${PRIVACY_INVARIANT}: action has no semantic evidence`);

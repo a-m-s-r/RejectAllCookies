@@ -77,6 +77,12 @@ export function verifyTcfData(value: unknown): VerificationResult {
   if (requiredMaps.some((map) => map === null) || optionalMaps.some((map) => map === null)) {
     return { verified: false, reason: 'TCF processing-state maps are incomplete or malformed' };
   }
+  const coreStates = requiredMaps
+    .slice(0, 4)
+    .flatMap((map) => (map === null ? [] : Object.values(map)));
+  if (coreStates.length === 0) {
+    return { verified: false, reason: 'TCF data contains no core processing-state evidence' };
+  }
   const maps = [...requiredMaps, ...optionalMaps].filter(
     (map): map is BooleanMap => map !== null && map !== undefined,
   );

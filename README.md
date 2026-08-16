@@ -17,12 +17,12 @@ pnpm dev:firefox
 
 Normal operation performs no telemetry, analytics, remote logging, page upload, or extension-originated network request. Runtime permissions are local extension storage and temporary active-tab access for the user-opened popup; host access is required for page-local consent detection.
 
-See [architecture](docs/ARCHITECTURE.md), [testing](docs/TESTING.md), and [contributing](docs/CONTRIBUTING.md).
+See [architecture](docs/ARCHITECTURE.md), [automated testing](docs/TESTING.md), [manual testing](docs/MANUAL_TESTING.md), and [contributing](docs/CONTRIBUTING.md).
 
 ## Browser status
 
-- Chromium MV3: configured, not yet exercised in this environment.
-- Firefox desktop MV3: configured, not yet exercised in this environment.
+- Chromium MV3: production build and packaged-extension Playwright scenarios pass; hands-on live-site testing is requested.
+- Firefox desktop MV3: production build and package validation pass; hands-on browser testing is requested.
 - Firefox for Android: documented test procedure only; support is not claimed yet.
 
 Source is available under the [PolyForm Noncommercial License 1.0.0](LICENSE). Commercial use and resale are not permitted by that license. Required attribution: Anastasia (ATech / Intellegacy).

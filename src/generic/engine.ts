@@ -83,6 +83,13 @@ export class ConsentEngine {
 
     const surface = discoverSurfaces(doc)[0];
     if (!surface) {
+      if (this.preferencesOpened) {
+        return {
+          status: 'unsupported',
+          reason: 'Preferences were opened, but complete minimization could not be proven',
+          actions: [],
+        };
+      }
       return {
         status: 'not_detected',
         reason: 'No sufficiently confident consent surface',

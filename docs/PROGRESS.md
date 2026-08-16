@@ -26,19 +26,20 @@
 - Winning iframe actions are surfaced in the per-tab popup status without persisting site history.
 - Explicit runtime enforcement and fixture coverage for `NO_POSITIVE_CONSENT_WITHOUT_USER_ACTION`.
 - Explicit extension-page CSP limiting scripts to packaged code and disabling objects/base rewriting.
+- Firefox declares `data_collection_permissions.required: ["none"]`, with minimum versions aligned to the built-in declaration support in Firefox Desktop 140 and Android 142.
 - Bounded read-only TCF v2 `addEventListener` verification through the standardized postMessage locator; every exposed optional/legitimate-interest signal must be false.
-- Unit/integration tests and CI configuration.
+- Unit/integration/performance tests, packaged-extension Chromium E2E tests, coverage thresholds, and CI configuration.
 
 ## Current limitations
 
-- `pnpm-lock.yaml` is generated and pins the patched `happy-dom@20.11.2` in place of the vulnerable `18.0.1` release. Formatting and strict TypeScript passed before the clean dependency relink; the relink stalled in this environment, so the complete check suite and browser runs remain pending.
+- The complete automated gate passes: formatting, ESLint, strict TypeScript, 96 unit/integration/performance tests, coverage thresholds, Chromium and Firefox MV3 production builds, and Firefox package validation with zero errors, notices, or warnings.
 - Generic purpose/vendor controls are handled only when their optional meaning and ON state are both provable. Dedicated adapters still need CMP-specific exhaustive purpose/vendor/legitimate-interest flows.
 - SPA URL changes rearm bounded detection. Virtualized vendor traversal is bounded and records UI coverage but cannot prove an opaque CMP exposed its full dataset.
-- Playwright E2E is implemented but unexecuted because dependencies and Chromium cannot be installed. Firefox Android is documented but unverified.
+- Two packaged-extension Playwright scenarios pass in Chromium, covering dynamic rejection, affirmative-action avoidance, reload persistence, popup loading, and truthful local controls/status. Firefox desktop and Android still require hands-on browser testing.
 
 ## Next highest-priority work
 
-1. Complete dependency linking, run the full check suite, and fix all surfaced issues.
-2. Add tested CMP-specific purpose/vendor/legitimate-interest minimization for OneTrust and Cookiebot.
+1. Perform hands-on Chromium testing against representative live sites and record reduced fixtures for any failures.
+2. Add tested CMP-specific purpose/vendor/legitimate-interest minimization beyond the existing OneTrust and Cookiebot flows.
 3. Add dedicated vendor-list navigation for CMPs whose vendor panels are not exposed in the active settings surface.
-4. Exercise Playwright, Firefox desktop, and Firefox Android fixtures.
+4. Exercise Firefox desktop and Firefox Android fixtures.
