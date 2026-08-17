@@ -50,7 +50,7 @@ export function planFirstAction(
       const isLegitimate =
         matchesConcept(context, 'legitimateInterest') || /legitimate\s+interest/iu.test(context);
 
-      const action = {
+      const action: ConsentAction = {
         intent: isLegitimate ? 'objectLegitimateInterest' : 'disablePurpose',
         target: toggle,
         evidence: [
@@ -66,9 +66,15 @@ export function planFirstAction(
     }
   }
 
-  if (vendorToggles.length > 0) return vendorToggles[0];
-  if (legitimateToggles.length > 0) return legitimateToggles[0];
-  if (otherToggles.length > 0) return otherToggles[0];
+  const [firstVendor] = vendorToggles;
+  if (firstVendor) return firstVendor;
+
+  const [firstLegitimate] = legitimateToggles;
+  if (firstLegitimate) return firstLegitimate;
+
+  const [firstOther] = otherToggles;
+  if (firstOther) return firstOther;
+
   return null;
 }
 
