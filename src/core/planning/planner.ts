@@ -29,10 +29,13 @@ export function planFirstAction(
       evidence: [`classified:${manage.text}`],
     };
   const toggleAction = planPreferenceAction(surface, false, excluded);
-  if (toggleAction && (toggleAction.intent.includes('disable') || toggleAction.intent === 'objectLegitimateInterest')) {
+  if (
+    toggleAction &&
+    (toggleAction.intent.includes('disable') || toggleAction.intent === 'objectLegitimateInterest')
+  ) {
     return toggleAction;
   }
-  
+
   const allToggles = [...surface.root.querySelectorAll<HTMLElement>(TOGGLE_SELECTOR)];
   const vendorToggles: ConsentAction[] = [];
   const legitimateToggles: ConsentAction[] = [];
@@ -44,8 +47,9 @@ export function planFirstAction(
     const state = readControlState(toggle);
     if (state === 'on') {
       const isVendor = matchesConcept(context, 'vendor') || /vendor/iu.test(context);
-      const isLegitimate = matchesConcept(context, 'legitimateInterest') || /legitimate\s+interest/iu.test(context);
-      
+      const isLegitimate =
+        matchesConcept(context, 'legitimateInterest') || /legitimate\s+interest/iu.test(context);
+
       const action = {
         intent: isLegitimate ? 'objectLegitimateInterest' : 'disablePurpose',
         target: toggle,
@@ -55,7 +59,7 @@ export function planFirstAction(
           isVendor ? 'vendor' : isLegitimate ? 'legitimate-interest' : 'consent-category',
         ],
       };
-      
+
       if (isVendor) vendorToggles.push(action);
       else if (isLegitimate) legitimateToggles.push(action);
       else otherToggles.push(action);

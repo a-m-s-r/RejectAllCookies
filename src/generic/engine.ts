@@ -137,10 +137,15 @@ export class ConsentEngine {
     }
     if (action.intent !== 'advanceVendorList') this.performedTargets.add(action.target);
 
-    const elementText = action.target instanceof HTMLElement 
-      ? (action.target.textContent || action.target.getAttribute('aria-label') || action.target.className).slice(0, 60)
-      : 'unknown';
-    
+    const elementText =
+      action.target instanceof HTMLElement
+        ? (
+            action.target.textContent ||
+            action.target.getAttribute('aria-label') ||
+            action.target.className
+          ).slice(0, 60)
+        : 'unknown';
+
     if (action.intent === 'disableVendor' || action.intent === 'objectLegitimateInterest') {
       const evidence = action.evidence.join('|');
       if (evidence.includes('vendor')) {
@@ -213,7 +218,7 @@ export function handleConsent(doc: Document = document): EngineResult {
   const engine = new ConsentEngine();
   const result = engine.handle(doc);
   const stats = engine.getStats();
-  
+
   if (stats.actions.length > 0) {
     const summary = [
       'Minimum Consent - Actions Taken:',
@@ -226,6 +231,6 @@ export function handleConsent(doc: Document = document): EngineResult {
     ].join('\n');
     console.log(summary);
   }
-  
+
   return result;
 }
