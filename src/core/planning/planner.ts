@@ -28,6 +28,10 @@ export function planFirstAction(
       target: manage.target,
       evidence: [`classified:${manage.text}`],
     };
+  const toggleAction = planPreferenceAction(surface, false, excluded);
+  if (toggleAction && (toggleAction.intent.includes('disable') || toggleAction.intent === 'objectLegitimateInterest')) {
+    return toggleAction;
+  }
   return null;
 }
 
