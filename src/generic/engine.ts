@@ -16,10 +16,10 @@ export interface InteractionPlan {
 
 export type Inspection = InteractionPlan | EngineResult;
 
-type ActionLog = {
+interface ActionLog {
   type: string;
   label: string;
-};
+}
 
 export function isInteractionPlan(inspection: Inspection): inspection is InteractionPlan {
   return 'action' in inspection;
@@ -150,10 +150,12 @@ export class ConsentEngine {
     const elementText =
       action.target instanceof HTMLElement
         ? (
-            action.target.textContent ??
-            action.target.getAttribute('aria-label') ??
-            action.target.className ??
-            'unknown'
+            [
+              action.target.textContent,
+              action.target.getAttribute('aria-label'),
+              action.target.className,
+              'unknown',
+            ].find((value) => value !== undefined && value !== null && value !== '') ?? 'unknown'
           ).slice(0, 60)
         : 'unknown';
 
