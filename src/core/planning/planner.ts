@@ -12,6 +12,15 @@ export function planFirstAction(surface: ConsentSurface): ConsentAction | null {
   if (reject) return { intent: 'rejectAll', target: reject.target, evidence: [`classified:${reject.text}`] };
   const manage = classified.find(({ meaning }) => meaning === 'openPreferences');
   if (manage) return { intent: 'openPreferences', target: manage.target, evidence: [`classified:${manage.text}`] };
+
+  const toggles = [...surface.root.querySelectorAll<HTMLElement>(TOGGLE_SELECTOR)];
+  for (const control of toggles) {
+    const context = normalizeForContext(controlContext(control));
+    if (!OPTIONAL.test(context) || REQUIRED.test(context) || readControlState(control) !== 'on') continue;
+    const intent = /\b(?:vendor|partner)\b/u.test(context) ? 'disableVendor' : 'disablePurpose';
+    return { intent, target: control, evidence: [`optional-control:${context.slice(0, 160)}`, 'state:on'] };
+  }
+
   return null;
 }
 
