@@ -32,6 +32,22 @@ export function planFirstAction(
   if (toggleAction && (toggleAction.intent.includes('disable') || toggleAction.intent === 'objectLegitimateInterest')) {
     return toggleAction;
   }
+  
+  const toggles = [...surface.root.querySelectorAll<HTMLElement>(TOGGLE_SELECTOR)].filter(
+    (control) => !excluded.has(control) && isElementVisible(control),
+  );
+  for (const toggle of toggles) {
+    const context = normalizeForContext(controlContext(toggle));
+    if (matchesConcept(context, 'requiredControl')) continue;
+    const state = readControlState(toggle);
+    if (state === 'on') {
+      return {
+        intent: 'disablePurpose',
+        target: toggle,
+        evidence: [`toggle:${context.slice(0, 100)}`, 'state:on'],
+      };
+    }
+  }
   return null;
 }
 
