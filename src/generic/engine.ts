@@ -35,7 +35,12 @@ export class ConsentEngine {
   private privacyModified = false;
   private readonly performedTargets = new Set<Element>();
   private readonly vendorWalker = new VendorWalker();
-  private readonly actionHistory: Array<{ intent: string; timestamp: number; element: string }> = [];
+  private readonly stats = {
+    vendorsDisabled: 0,
+    legitimateInterestDisabled: 0,
+    categoriesDisabled: 0,
+    actions: [] as Array<{ type: string; label: string }>,
+  };
 
   private planPreferences(
     surface: Parameters<typeof planPreferenceAction>[0],
@@ -135,11 +140,25 @@ export class ConsentEngine {
     const elementText = action.target instanceof HTMLElement 
       ? (action.target.textContent || action.target.getAttribute('aria-label') || action.target.className).slice(0, 60)
       : 'unknown';
-    this.actionHistory.push({
-      intent: action.intent,
-      timestamp: Date.now(),
-      element: elementText,
-    });
+    
+    if (action.intent === 'disableVendor' || action.intent === 'objectLegitimateInterest') {
+      const evidence = action.evidence.join('|');
+      if (evidence.includes('vendor')) {
+        this.stats.vendorsDisabled++;
+      } else if (evidence.includes('legitimate-interest')) {
+        this.stats.legitimateInterestDisabled++;
+      } else {
+        this.stats.categoriesDisabled++;
+      }
+      this.stats.actions.push({ type: action.intent, label: elementText });
+    } else if (action.intent === 'disablePurpose') {
+      this.stats.categoriesDisabled++;
+      this.stats.actions.push({ type: 'disablePurpose', label: elementText });
+    } else if (action.intent === 'rejectAll') {
+      this.stats.actions.push({ type: 'rejectAll', label: elementText });
+    } else if (action.intent === 'openPreferences') {
+      this.stats.actions.push({ type: 'openPreferences', label: elementText });
+    }
 
     if (action.intent === 'openPreferences') this.preferencesOpened = true;
     if (
@@ -185,17 +204,28 @@ export class ConsentEngine {
     return isInteractionPlan(inspection) ? this.execute(inspection, doc) : inspection;
   }
 
-  getActionHistory() {
-    return [...this.actionHistory];
+  getStats() {
+    return { ...this.stats };
   }
 }
 
 export function handleConsent(doc: Document = document): EngineResult {
   const engine = new ConsentEngine();
   const result = engine.handle(doc);
-  const history = engine.getActionHistory();
-  if (history.length > 0) {
-    console.log('[Minimum Consent] Actions taken:', history.map(a => `${a.intent}: ${a.element}`).join(' → '));
+  const stats = engine.getStats();
+  
+  if (stats.actions.length > 0) {
+    const summary = [
+      'Minimum Consent - Actions Taken:',
+      `  Vendors Disabled: ${stats.vendorsDisabled}`,
+      `  Legitimate Interest Disabled: ${stats.legitimateInterestDisabled}`,
+      `  Categories Disabled: ${stats.categoriesDisabled}`,
+      `  Total Actions: ${stats.actions.length}`,
+      'Sequence:',
+      ...stats.actions.map((a, i) => `  ${i + 1}. ${a.type}: ${a.label}`),
+    ].join('\n');
+    console.log(summary);
   }
+  
   return result;
 }
