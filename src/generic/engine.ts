@@ -147,17 +147,23 @@ export class ConsentEngine {
     }
     if (action.intent !== 'advanceVendorList') this.performedTargets.add(action.target);
 
-    const elementText =
-      action.target instanceof HTMLElement
-        ? (
-            [
-              action.target.textContent,
-              action.target.getAttribute('aria-label'),
-              action.target.className,
-              'unknown',
-            ].find((value) => value !== undefined && value !== null && value !== '') ?? 'unknown'
-          ).slice(0, 60)
-        : 'unknown';
+    const elementText = (() => {
+      if (!(action.target instanceof HTMLElement)) return 'unknown';
+
+      const candidates = [
+        action.target.textContent,
+        action.target.getAttribute('aria-label'),
+        action.target.className,
+      ];
+
+      for (const candidate of candidates) {
+        if (typeof candidate === 'string' && candidate.length > 0) {
+          return candidate.slice(0, 60);
+        }
+      }
+
+      return 'unknown';
+    })();
 
     if (action.intent === 'disableVendor' || action.intent === 'objectLegitimateInterest') {
       const evidence = action.evidence.join('|');
