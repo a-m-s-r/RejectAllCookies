@@ -41,7 +41,6 @@ export class ConsentEngine {
     categoriesDisabled: 0,
     actions: [] as Array<{ type: string; label: string }>,
   };
-  private currentSurface: HTMLElement | null = null;
 
   private planPreferences(
     surface: Parameters<typeof planPreferenceAction>[0],
@@ -62,7 +61,6 @@ export class ConsentEngine {
     for (const adapter of CMP_ADAPTERS) {
       const surface = adapter.detect(doc);
       if (!surface) continue;
-      this.currentSurface = surface.root;
       const action =
         (this.preferencesOpened ? this.planPreferences(surface, adapter) : null) ??
         adapter.plan(surface);
@@ -104,7 +102,6 @@ export class ConsentEngine {
         actions: [],
       };
     }
-    this.currentSurface = surface.root;
     const action =
       (this.preferencesOpened ? this.planPreferences(surface) : null) ??
       planFirstAction(surface, this.performedTargets);
@@ -204,25 +201,7 @@ export class ConsentEngine {
 
   handle(doc: Document = document): EngineResult {
     const inspection = this.inspect(doc);
-    const result = isInteractionPlan(inspection) ? this.execute(inspection, doc) : inspection;
-    
-    if (this.currentSurface && this.currentSurface.parentElement) {
-      const isTerminal = 
-        result.status === 'rejected_verified' || 
-        result.status === 'rejected_unverified' ||
-        result.status === 'no_action_needed';
-      
-      if (isTerminal || this.stats.actions.length > 0) {
-        try {
-          this.currentSurface.remove();
-          this.stats.actions.push({ type: 'removed', label: 'Consent popup removed from DOM' });
-        } catch (e) {
-          console.error('Failed to remove consent surface:', e);
-        }
-      }
-    }
-    
-    return result;
+    return isInteractionPlan(inspection) ? this.execute(inspection, doc) : inspection;
   }
 
   getStats() {
