@@ -33,17 +33,17 @@ export function planFirstAction(
     return toggleAction;
   }
   
-  const toggles = [...surface.root.querySelectorAll<HTMLElement>(TOGGLE_SELECTOR)].filter(
-    (control) => !excluded.has(control) && isElementVisible(control),
-  );
-  for (const toggle of toggles) {
+  const allToggles = [...surface.root.querySelectorAll<HTMLElement>(TOGGLE_SELECTOR)];
+  for (const toggle of allToggles) {
+    if (excluded.has(toggle)) continue;
+    const context = normalizeForContext(controlContext(toggle));
     const state = readControlState(toggle);
     if (state === 'on') {
-      const context = normalizeForContext(controlContext(toggle));
+      const isLegitimate = matchesConcept(context, 'legitimateInterest');
       return {
-        intent: 'disablePurpose',
+        intent: isLegitimate ? 'objectLegitimateInterest' : 'disablePurpose',
         target: toggle,
-        evidence: [`toggle:${context.slice(0, 100)}`, 'state:on'],
+        evidence: [`toggle:${context.slice(0, 100)}`, 'state:on', isLegitimate ? 'legitimate-interest' : 'consent'],
       };
     }
   }

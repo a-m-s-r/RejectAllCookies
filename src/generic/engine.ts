@@ -35,6 +35,7 @@ export class ConsentEngine {
   private privacyModified = false;
   private readonly performedTargets = new Set<Element>();
   private readonly vendorWalker = new VendorWalker();
+  private readonly actionHistory: Array<{ intent: string; timestamp: number; element: string }> = [];
 
   private planPreferences(
     surface: Parameters<typeof planPreferenceAction>[0],
@@ -131,6 +132,15 @@ export class ConsentEngine {
     }
     if (action.intent !== 'advanceVendorList') this.performedTargets.add(action.target);
 
+    const elementText = action.target instanceof HTMLElement 
+      ? (action.target.textContent || action.target.getAttribute('aria-label') || action.target.className).slice(0, 60)
+      : 'unknown';
+    this.actionHistory.push({
+      intent: action.intent,
+      timestamp: Date.now(),
+      element: elementText,
+    });
+
     if (action.intent === 'openPreferences') this.preferencesOpened = true;
     if (
       action.intent === 'disablePurpose' ||
@@ -174,8 +184,18 @@ export class ConsentEngine {
     const inspection = this.inspect(doc);
     return isInteractionPlan(inspection) ? this.execute(inspection, doc) : inspection;
   }
+
+  getActionHistory() {
+    return [...this.actionHistory];
+  }
 }
 
 export function handleConsent(doc: Document = document): EngineResult {
-  return new ConsentEngine().handle(doc);
+  const engine = new ConsentEngine();
+  const result = engine.handle(doc);
+  const history = engine.getActionHistory();
+  if (history.length > 0) {
+    console.log('[Minimum Consent] Actions taken:', history.map(a => `${a.intent}: ${a.element}`).join(' → '));
+  }
+  return result;
 }
