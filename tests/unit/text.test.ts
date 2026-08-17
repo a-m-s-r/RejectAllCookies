@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
-<<<<<<< HEAD
-import { classifyAction, normalizeText } from '../../src/core/classification/text';
-import { planFirstAction } from '../../src/core/planning/planner';
-=======
 import { classifyAction, matchesConcept, normalizeText } from '../../src/core/classification/text';
->>>>>>> c7b5ef750f4812aac6a5e5cbb7240aa4a412e07c
+import { planFirstAction } from '../../src/core/planning/planner';
 
 describe('semantic text classification', () => {
   it('normalizes unicode punctuation and whitespace', () =>
