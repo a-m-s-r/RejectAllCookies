@@ -11,7 +11,12 @@ export default tseslint.config(
   prettier,
   {
     languageOptions: {
-      parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
+      parserOptions: {
+        projectService: {
+          allowDefaultProject: ['eslint.config.js', 'tests/e2e/*.mjs'],
+        },
+        tsconfigRootDir: import.meta.dirname,
+      },
       globals: { ...globals.browser, ...globals.node },
     },
     rules: {

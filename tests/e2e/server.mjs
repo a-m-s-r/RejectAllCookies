@@ -22,7 +22,10 @@ if (localStorage.getItem('choice') !== 'rejected') {
 </script></body></html>`;
 
 const server = http.createServer((_request, response) => {
-  response.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+  response.writeHead(200, {
+    'content-type': 'text/html; charset=utf-8',
+    'cache-control': 'no-store',
+  });
   response.end(html);
 });
 server.listen(4173, '127.0.0.1');

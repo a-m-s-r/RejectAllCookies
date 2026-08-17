@@ -2,6 +2,8 @@ import { test as base, chromium, type BrowserContext } from '@playwright/test';
 import path from 'node:path';
 
 export const test = base.extend<{ context: BrowserContext; extensionId: string }>({
+  // Playwright requires the fixture argument even when no base fixture is consumed.
+  // eslint-disable-next-line no-empty-pattern
   context: async ({}, use) => {
     const extensionPath = path.resolve('.output/chrome-mv3');
     const context = await chromium.launchPersistentContext('', {

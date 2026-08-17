@@ -1,5 +1,6 @@
 import { ConsentEngine, isInteractionPlan } from '../generic/engine';
-import { readSettings, writeSiteStatus } from '../shared/settings';
+import { readSettings } from '../shared/settings';
+import { verifyTcfViaPostMessage } from '../core/verification/tcf';
 
 const MAX_OBSERVER_LIFETIME_MS = 30_000;
 const DEBOUNCE_MS = 150;
@@ -18,13 +19,24 @@ export default defineContentScript({
     let running = false;
     let observedUrl = location.href;
 
+    const report = async (result: ReturnType<typeof engine.handle>) => {
+      if (result.status === 'not_detected') return false;
+      try {
+        await browser.runtime.sendMessage({ type: 'record-tab-status', result });
+        return true;
+      } catch {
+        // Diagnostics are best-effort and must never affect consent execution.
+        return false;
+      }
+    };
+
     const scan = async () => {
       if (completed || running) return;
       running = true;
       const inspection = engine.inspect(document);
       if (!isInteractionPlan(inspection)) {
         if (window === window.top && inspection.status !== 'not_detected') {
-          await writeSiteStatus(location.hostname, inspection);
+          await report(inspection);
         }
         running = false;
         return;
@@ -38,13 +50,11 @@ export default defineContentScript({
           topFrame: window === window.top,
         });
       } catch (error) {
-        if (window === window.top) {
-          void writeSiteStatus(location.hostname, {
-            status: 'interaction_failed',
-            reason: error instanceof Error ? error.message : 'Frame arbitration failed',
-            actions: [],
-          });
-        }
+        void report({
+          status: 'interaction_failed',
+          reason: error instanceof Error ? error.message : 'Frame arbitration failed',
+          actions: [],
+        });
         running = false;
         return;
       }
@@ -52,11 +62,22 @@ export default defineContentScript({
         running = false;
         return;
       }
-      const result = engine.execute(inspection, document);
-      if (window === window.top && result.status !== 'not_detected') void writeSiteStatus(location.hostname, result);
+      let result = engine.execute(inspection, document);
+      if (result.status === 'rejected_unverified') {
+        const tcfVerification = await verifyTcfViaPostMessage(window);
+        if (tcfVerification.verified) {
+          result = {
+            ...result,
+            status: 'rejected_verified',
+            reason: tcfVerification.reason,
+          };
+        }
+      }
+      void report(result);
       completed = result.status === 'rejected_verified' || result.status === 'rejected_unverified';
       if (completed) observer.disconnect();
       running = false;
+      if (!completed && result.actions.length > 0) schedule();
     };
     const schedule = () => {
       clearTimeout(timer);
@@ -66,7 +87,12 @@ export default defineContentScript({
     const arm = () => {
       completed = false;
       observer.disconnect();
-      observer.observe(document, { childList: true, subtree: true });
+      observer.observe(document, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['class', 'style', 'hidden', 'aria-hidden', 'aria-modal', 'role'],
+      });
       ctx.setTimeout(() => observer.disconnect(), MAX_OBSERVER_LIFETIME_MS);
       schedule();
     };
