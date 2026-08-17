@@ -37,10 +37,9 @@ export function planFirstAction(
     (control) => !excluded.has(control) && isElementVisible(control),
   );
   for (const toggle of toggles) {
-    const context = normalizeForContext(controlContext(toggle));
-    if (matchesConcept(context, 'requiredControl')) continue;
     const state = readControlState(toggle);
     if (state === 'on') {
+      const context = normalizeForContext(controlContext(toggle));
       return {
         intent: 'disablePurpose',
         target: toggle,
