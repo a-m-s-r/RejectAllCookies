@@ -16,6 +16,11 @@ export interface InteractionPlan {
 
 export type Inspection = InteractionPlan | EngineResult;
 
+type ActionLog = {
+  type: string;
+  label: string;
+};
+
 export function isInteractionPlan(inspection: Inspection): inspection is InteractionPlan {
   return 'action' in inspection;
 }
@@ -35,11 +40,16 @@ export class ConsentEngine {
   private privacyModified = false;
   private readonly performedTargets = new Set<Element>();
   private readonly vendorWalker = new VendorWalker();
-  private readonly stats = {
+  private readonly stats: {
+    vendorsDisabled: number;
+    legitimateInterestDisabled: number;
+    categoriesDisabled: number;
+    actions: ActionLog[];
+  } = {
     vendorsDisabled: 0,
     legitimateInterestDisabled: 0,
     categoriesDisabled: 0,
-    actions: [] as Array<{ type: string; label: string }>,
+    actions: [],
   };
 
   private planPreferences(
@@ -140,9 +150,10 @@ export class ConsentEngine {
     const elementText =
       action.target instanceof HTMLElement
         ? (
-            action.target.textContent ||
-            action.target.getAttribute('aria-label') ||
-            action.target.className
+            action.target.textContent ??
+            action.target.getAttribute('aria-label') ??
+            action.target.className ??
+            'unknown'
           ).slice(0, 60)
         : 'unknown';
 
@@ -222,12 +233,12 @@ export function handleConsent(doc: Document = document): EngineResult {
   if (stats.actions.length > 0) {
     const summary = [
       'Minimum Consent - Actions Taken:',
-      `  Vendors Disabled: ${stats.vendorsDisabled}`,
-      `  Legitimate Interest Disabled: ${stats.legitimateInterestDisabled}`,
-      `  Categories Disabled: ${stats.categoriesDisabled}`,
-      `  Total Actions: ${stats.actions.length}`,
+      `  Vendors Disabled: ${String(stats.vendorsDisabled)}`,
+      `  Legitimate Interest Disabled: ${String(stats.legitimateInterestDisabled)}`,
+      `  Categories Disabled: ${String(stats.categoriesDisabled)}`,
+      `  Total Actions: ${String(stats.actions.length)}`,
       'Sequence:',
-      ...stats.actions.map((a, i) => `  ${i + 1}. ${a.type}: ${a.label}`),
+      ...stats.actions.map((a, i) => `  ${String(i + 1)}. ${a.type}: ${a.label}`),
     ].join('\n');
     console.log(summary);
   }
