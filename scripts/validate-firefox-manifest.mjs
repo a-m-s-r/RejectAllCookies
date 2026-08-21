@@ -7,7 +7,16 @@ if (!existsSync(manifestPath)) {
   throw new Error(`Firefox manifest not found at ${manifestPath}. Run pnpm build:firefox first.`);
 }
 
-const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+/** @param {unknown} value @returns {value is Record<string, unknown>} */
+function isRecord(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+const parsed = /** @type {unknown} */ (JSON.parse(readFileSync(manifestPath, 'utf8')));
+if (!isRecord(parsed)) {
+  throw new Error('Firefox manifest root must be an object.');
+}
+const manifest = parsed;
 
 const required = [
   'manifest_version',
@@ -27,7 +36,9 @@ for (const key of required) {
 }
 
 if (manifest.manifest_version !== 3) {
-  throw new Error(`Firefox manifest manifest_version must be 3, got ${manifest.manifest_version}`);
+  throw new Error(
+    `Firefox manifest manifest_version must be 3, got ${String(manifest.manifest_version)}`,
+  );
 }
 
 if (!Array.isArray(manifest.permissions)) {
@@ -39,11 +50,11 @@ if (!Array.isArray(manifest.host_permissions)) {
 }
 
 const background = manifest.background;
-if (!background || typeof background !== 'object') {
+if (!isRecord(background)) {
   throw new Error('Firefox manifest background section is missing or invalid.');
 }
 
-if (!background.scripts || !Array.isArray(background.scripts) || background.scripts.length === 0) {
+if (!Array.isArray(background.scripts) || background.scripts.length === 0) {
   throw new Error('Firefox manifest background.scripts must be a non-empty array.');
 }
 

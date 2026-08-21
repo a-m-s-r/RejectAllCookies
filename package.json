@@ -24,7 +24,8 @@
     "test:coverage": "vitest run --coverage",
     "test:performance": "vitest run tests/performance",
     "test:e2e": "playwright test",
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm build && pnpm build:firefox && pnpm validate:firefox-manifest",
+    "test:live": "node ./scripts/test-live-sites.mjs",
+    "check": "prettier --check . && eslint . --max-warnings=0 && tsc --noEmit && vitest run --coverage && wxt build && wxt build -b firefox --mv3 && node ./scripts/validate-firefox-manifest.mjs",
     "validate:firefox-manifest": "node ./scripts/validate-firefox-manifest.mjs"
   },
   "devDependencies": {

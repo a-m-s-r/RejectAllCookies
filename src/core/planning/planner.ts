@@ -35,46 +35,6 @@ export function planFirstAction(
   ) {
     return toggleAction;
   }
-
-  const allToggles = [...surface.root.querySelectorAll<HTMLElement>(TOGGLE_SELECTOR)];
-  const vendorToggles: ConsentAction[] = [];
-  const legitimateToggles: ConsentAction[] = [];
-  const otherToggles: ConsentAction[] = [];
-
-  for (const toggle of allToggles) {
-    if (excluded.has(toggle)) continue;
-    const context = normalizeForContext(controlContext(toggle));
-    const state = readControlState(toggle);
-    if (state === 'on') {
-      const isVendor = matchesConcept(context, 'vendor') || /vendor/iu.test(context);
-      const isLegitimate =
-        matchesConcept(context, 'legitimateInterest') || /legitimate\s+interest/iu.test(context);
-
-      const action: ConsentAction = {
-        intent: isLegitimate ? 'objectLegitimateInterest' : 'disablePurpose',
-        target: toggle,
-        evidence: [
-          `toggle:${context.slice(0, 80)}`,
-          'state:on',
-          isVendor ? 'vendor' : isLegitimate ? 'legitimate-interest' : 'consent-category',
-        ],
-      };
-
-      if (isVendor) vendorToggles.push(action);
-      else if (isLegitimate) legitimateToggles.push(action);
-      else otherToggles.push(action);
-    }
-  }
-
-  const [firstVendor] = vendorToggles;
-  if (firstVendor) return firstVendor;
-
-  const [firstLegitimate] = legitimateToggles;
-  if (firstLegitimate) return firstLegitimate;
-
-  const [firstOther] = otherToggles;
-  if (firstOther) return firstOther;
-
   return null;
 }
 

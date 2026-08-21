@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { verifyTcfData } from '../../src/core/verification/tcf';
+import { verifyTcfData, verifyTcfViaPostMessage } from '../../src/core/verification/tcf';
 
 const rejected = {
   tcString: 'test-evidence',
@@ -39,5 +39,32 @@ describe('TCF read-only verification', () => {
     },
   ])('does not verify incomplete or active state', (value) => {
     expect(verifyTcfData(value).verified).toBe(false);
+  });
+
+  it('removes a registered TCF listener after successful verification', async () => {
+    document.body.innerHTML = '<iframe name="__tcfapiLocator"></iframe>';
+    const target = document.querySelector('iframe')?.contentWindow;
+    if (!target) throw new Error('TCF locator fixture failed');
+    const posted: unknown[] = [];
+    target.postMessage = (message: unknown) => posted.push(message);
+    const pending = verifyTcfViaPostMessage(window, 100);
+    const call = posted[0] as { __tcfapiCall: { callId: string } };
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        source: target,
+        data: {
+          __tcfapiReturn: {
+            callId: call.__tcfapiCall.callId,
+            success: true,
+            returnValue: { ...rejected, listenerId: 42 },
+          },
+        },
+      }),
+    );
+    await expect(pending).resolves.toMatchObject({ verified: true });
+    expect(posted).toHaveLength(2);
+    expect(posted[1]).toMatchObject({
+      __tcfapiCall: { command: 'removeEventListener', parameter: 42 },
+    });
   });
 });

@@ -13,7 +13,7 @@ export default tseslint.config(
     languageOptions: {
       parserOptions: {
         projectService: {
-          allowDefaultProject: ['eslint.config.js', 'tests/e2e/*.mjs'],
+          allowDefaultProject: ['eslint.config.js', 'scripts/*.mjs', 'tests/e2e/*.mjs'],
         },
         tsconfigRootDir: import.meta.dirname,
       },

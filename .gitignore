@@ -3,6 +3,7 @@ node_modules/
 .wxt/
 coverage/
 web-ext-artifacts/
+test-results/
 *.log
 .env*
 !.env.example

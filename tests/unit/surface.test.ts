@@ -18,4 +18,14 @@ describe('consent surface scoring', () => {
       '<div role="dialog"><h2>Cookie preferences</h2><label>Optional analytics <input type="checkbox" checked></label><button>Save choices</button></div>';
     expect(discoverSurfaces()).toHaveLength(1);
   });
+
+  it('ignores consent controls inside a hidden shadow host', () => {
+    const host = document.createElement('div');
+    host.hidden = true;
+    document.body.append(host);
+    const shadow = host.attachShadow({ mode: 'open' });
+    shadow.innerHTML =
+      '<div role="dialog"><h2>Cookie consent</h2><button>Reject all</button><button>Accept all</button></div>';
+    expect(discoverSurfaces()).toEqual([]);
+  });
 });

@@ -7,18 +7,25 @@ export interface ConsentSurface {
 }
 
 export function isElementVisible(element: HTMLElement): boolean {
-  for (let current: HTMLElement | null = element; current; current = current.parentElement) {
+  for (let current: HTMLElement | null = element; current; current = composedParent(current)) {
     if (current.hidden || current.getAttribute('aria-hidden') === 'true') return false;
     const style = getComputedStyle(current);
     if (
       style.display === 'none' ||
       style.visibility === 'hidden' ||
-      style.visibility === 'collapse'
+      style.visibility === 'collapse' ||
+      style.opacity === '0'
     ) {
       return false;
     }
   }
   return true;
+}
+
+function composedParent(element: HTMLElement): HTMLElement | null {
+  if (element.parentElement) return element.parentElement;
+  const root = element.getRootNode();
+  return root instanceof ShadowRoot && root.host instanceof HTMLElement ? root.host : null;
 }
 
 export function scoreSurface(element: HTMLElement): ConsentSurface | null {

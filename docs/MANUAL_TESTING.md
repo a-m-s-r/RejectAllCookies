@@ -21,6 +21,8 @@ Visit a site that presents a fresh consent banner. Use a private window only if 
 
 Record the page URL, visible consent-manager name, browser/version, popup status and details, expected result, and actual result. Do not include cookies, consent strings, account details, or other private page data in a report.
 
+For a repeatable clean-profile smoke pass over the maintained public-site matrix, build Chromium and run `pnpm test:live`. The command requires network access, prints only clicked consent-control labels, and must never replace deterministic fixture tests.
+
 ## Firefox
 
 Open `about:debugging#/runtime/this-firefox`, choose **Load Temporary Add-on**, and select `.output/firefox-mv3/manifest.json`. Repeat the checks above on Firefox 140 or newer. Firefox Android 142 or newer remains a separate compatibility target.

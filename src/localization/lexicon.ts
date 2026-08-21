@@ -17,6 +17,8 @@ export const LEXICON: Readonly<Record<Concept, readonly string[]>> = {
   reject: [
     'reject all',
     'decline all',
+    'disagree',
+    'do not accept',
     'deny all',
     'refuse all',
     'tout refuser',

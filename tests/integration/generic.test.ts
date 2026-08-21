@@ -21,6 +21,14 @@ describe('generic engine', () => {
     expect(reject).toHaveBeenCalledOnce();
     expect(accept).not.toHaveBeenCalled();
   });
+  it('does not emit automatic page-console diagnostics', () => {
+    document.body.innerHTML =
+      '<div role="dialog" style="position:fixed"><h2>Cookie privacy consent</h2><button>Accept all</button><button>Reject all</button></div>';
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    handleConsent();
+    expect(log).not.toHaveBeenCalled();
+    log.mockRestore();
+  });
   it('does not interact during inspection before frame authorization', () => {
     document.body.innerHTML =
       '<div role="dialog" style="position:fixed"><h2>Cookie privacy consent</h2><button id="accept">Accept all</button><button id="reject">Reject all</button></div>';
@@ -183,6 +191,24 @@ describe('generic engine', () => {
     engine.handle();
     expect(engine.handle().status).toBe('unsupported');
     expect(requiredInput('#required').checked).toBe(true);
+  });
+  it('does not disable a required first-layer toggle after optional controls are already off', () => {
+    document.body.innerHTML =
+      '<div role="dialog"><h2>Cookie preferences</h2><label>Required authentication <input id="required" type="checkbox" checked></label><label>Optional analytics <input id="optional" type="checkbox"></label></div>';
+    const result = handleConsent();
+    expect(result.status).toBe('unsupported');
+    expect(requiredInput('#required').checked).toBe(true);
+    expect(requiredInput('#optional').checked).toBe(false);
+  });
+  it('saves a first-layer preference surface after disabling its optional controls', () => {
+    document.body.innerHTML =
+      '<div role="dialog"><h2>Cookie preferences</h2><label>Optional analytics <input id="optional" type="checkbox" checked></label><button id="save">Save choices</button></div>';
+    const engine = new ConsentEngine();
+    const save = vi.fn();
+    document.querySelector('#save')?.addEventListener('click', save);
+    expect(engine.handle().actions).toEqual(['disablePurpose']);
+    expect(engine.handle().actions).toEqual(['savePreferences']);
+    expect(save).toHaveBeenCalledOnce();
   });
   it('objects to a proven-on individual legitimate-interest control', () => {
     document.body.innerHTML =

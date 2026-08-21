@@ -18,6 +18,7 @@ export default defineContentScript({
     let completed = false;
     let running = false;
     let observedUrl = location.href;
+    let observerLifetimeTimer: number | undefined;
 
     const report = async (result: ReturnType<typeof engine.handle>) => {
       if (result.status === 'not_detected') return false;
@@ -87,13 +88,14 @@ export default defineContentScript({
     const arm = () => {
       completed = false;
       observer.disconnect();
+      clearTimeout(observerLifetimeTimer);
       observer.observe(document, {
         childList: true,
         subtree: true,
         attributes: true,
         attributeFilter: ['class', 'style', 'hidden', 'aria-hidden', 'aria-modal', 'role'],
       });
-      ctx.setTimeout(() => observer.disconnect(), MAX_OBSERVER_LIFETIME_MS);
+      observerLifetimeTimer = ctx.setTimeout(() => observer.disconnect(), MAX_OBSERVER_LIFETIME_MS);
       schedule();
     };
     ctx.setInterval(() => {

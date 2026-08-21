@@ -16,11 +16,6 @@ export interface InteractionPlan {
 
 export type Inspection = InteractionPlan | EngineResult;
 
-interface ActionLog {
-  type: string;
-  label: string;
-}
-
 export function isInteractionPlan(inspection: Inspection): inspection is InteractionPlan {
   return 'action' in inspection;
 }
@@ -40,17 +35,6 @@ export class ConsentEngine {
   private privacyModified = false;
   private readonly performedTargets = new Set<Element>();
   private readonly vendorWalker = new VendorWalker();
-  private readonly stats: {
-    vendorsDisabled: number;
-    legitimateInterestDisabled: number;
-    categoriesDisabled: number;
-    actions: ActionLog[];
-  } = {
-    vendorsDisabled: 0,
-    legitimateInterestDisabled: 0,
-    categoriesDisabled: 0,
-    actions: [],
-  };
 
   private planPreferences(
     surface: Parameters<typeof planPreferenceAction>[0],
@@ -147,49 +131,13 @@ export class ConsentEngine {
     }
     if (action.intent !== 'advanceVendorList') this.performedTargets.add(action.target);
 
-    const elementText = (() => {
-      if (!(action.target instanceof HTMLElement)) return 'unknown';
-
-      const candidates = [
-        action.target.textContent,
-        action.target.getAttribute('aria-label'),
-        action.target.className,
-      ];
-
-      for (const candidate of candidates) {
-        if (typeof candidate === 'string' && candidate.length > 0) {
-          return candidate.slice(0, 60);
-        }
-      }
-
-      return 'unknown';
-    })();
-
-    if (action.intent === 'disableVendor' || action.intent === 'objectLegitimateInterest') {
-      const evidence = action.evidence.join('|');
-      if (evidence.includes('vendor')) {
-        this.stats.vendorsDisabled++;
-      } else if (evidence.includes('legitimate-interest')) {
-        this.stats.legitimateInterestDisabled++;
-      } else {
-        this.stats.categoriesDisabled++;
-      }
-      this.stats.actions.push({ type: action.intent, label: elementText });
-    } else if (action.intent === 'disablePurpose') {
-      this.stats.categoriesDisabled++;
-      this.stats.actions.push({ type: 'disablePurpose', label: elementText });
-    } else if (action.intent === 'rejectAll') {
-      this.stats.actions.push({ type: 'rejectAll', label: elementText });
-    } else if (action.intent === 'openPreferences') {
-      this.stats.actions.push({ type: 'openPreferences', label: elementText });
-    }
-
     if (action.intent === 'openPreferences') this.preferencesOpened = true;
     if (
       action.intent === 'disablePurpose' ||
       action.intent === 'disableVendor' ||
       action.intent === 'objectLegitimateInterest'
     ) {
+      this.preferencesOpened = true;
       this.privacyModified = true;
     }
     if (isProgressAction(action)) {
@@ -227,29 +175,8 @@ export class ConsentEngine {
     const inspection = this.inspect(doc);
     return isInteractionPlan(inspection) ? this.execute(inspection, doc) : inspection;
   }
-
-  getStats() {
-    return { ...this.stats };
-  }
 }
 
 export function handleConsent(doc: Document = document): EngineResult {
-  const engine = new ConsentEngine();
-  const result = engine.handle(doc);
-  const stats = engine.getStats();
-
-  if (stats.actions.length > 0) {
-    const summary = [
-      'Minimum Consent - Actions Taken:',
-      `  Vendors Disabled: ${String(stats.vendorsDisabled)}`,
-      `  Legitimate Interest Disabled: ${String(stats.legitimateInterestDisabled)}`,
-      `  Categories Disabled: ${String(stats.categoriesDisabled)}`,
-      `  Total Actions: ${String(stats.actions.length)}`,
-      'Sequence:',
-      ...stats.actions.map((a, i) => `  ${String(i + 1)}. ${a.type}: ${a.label}`),
-    ].join('\n');
-    console.log(summary);
-  }
-
-  return result;
+  return new ConsentEngine().handle(doc);
 }

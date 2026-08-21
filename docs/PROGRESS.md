@@ -12,7 +12,7 @@
 - Minimal local popup with global enable, per-host pause, and truthful ephemeral per-tab status.
 - Options page for adding, reviewing, and removing exact-host exclusions without unsafe HTML injection.
 - User-opened local diagnostic details in the popup; no report is transmitted or copied automatically.
-- Chromium Playwright harness with a real packaged-extension fixture for dynamic rejection, affirmative-action avoidance, reload persistence, and popup loading.
+- Chromium Playwright harness with real packaged-extension fixtures for dynamic rejection, complex preferences, false-positive forms, Shadow DOM, child frames, delayed SPA routing, reload persistence, and popup loading.
 - Side-effect-free action inspection and confidence-ranked per-tab frame arbitration with a 30-second owner lease.
 - Explicit verification evidence; banner disappearance is no longer misreported as verified rejection.
 - Per-session action-target memory prevents persistent controls from causing repeat-click loops.
@@ -32,14 +32,15 @@
 
 ## Current limitations
 
-- The complete automated gate passes: formatting, ESLint, strict TypeScript, 96 unit/integration/performance tests, coverage thresholds, Chromium and Firefox MV3 production builds, and Firefox package validation with zero errors, notices, or warnings.
+- The complete automated gate passes: formatting, ESLint, strict TypeScript, 107 unit/integration/performance tests, coverage thresholds, Chromium and Firefox MV3 production builds, and Firefox package validation.
 - Generic purpose/vendor controls are handled only when their optional meaning and ON state are both provable. Dedicated adapters still need CMP-specific exhaustive purpose/vendor/legitimate-interest flows.
 - SPA URL changes rearm bounded detection. Virtualized vendor traversal is bounded and records UI coverage but cannot prove an opaque CMP exposed its full dataset.
-- Two packaged-extension Playwright scenarios pass in Chromium, covering dynamic rejection, affirmative-action avoidance, reload persistence, popup loading, and truthful local controls/status. Firefox desktop and Android still require hands-on browser testing.
+- Seven packaged-extension Playwright scenarios pass in Chromium. An opt-in live-site smoke matrix covers four public CMP/vendor pages and two complex publisher sites without observing an affirmative action. Firefox desktop and Android still require hands-on browser testing.
+- The development dependency audit reports two high-severity denial-of-service advisories in `image-size`, reached only through WXT's build-time Firefox linter. The advisory currently lists no patched release; the dependency is not packaged with the extension.
 
 ## Next highest-priority work
 
-1. Perform hands-on Chromium testing against representative live sites and record reduced fixtures for any failures.
-2. Add tested CMP-specific purpose/vendor/legitimate-interest minimization beyond the existing OneTrust and Cookiebot flows.
+1. Add tested CMP-specific purpose/vendor/legitimate-interest minimization beyond the existing OneTrust and Cookiebot flows.
+2. Continue live Chromium sampling and record reduced fixtures for any newly observed failures.
 3. Add dedicated vendor-list navigation for CMPs whose vendor panels are not exposed in the active settings surface.
 4. Exercise Firefox desktop and Firefox Android fixtures.

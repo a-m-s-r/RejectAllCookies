@@ -134,11 +134,25 @@ export function verifyTcfViaPostMessage(
   return new Promise((resolve) => {
     const callId = crypto.randomUUID();
     let settled = false;
+    let listenerId: string | number | undefined;
     const finish = (result: VerificationResult) => {
       if (settled) return;
       settled = true;
       currentWindow.removeEventListener('message', onMessage);
       currentWindow.clearTimeout(timer);
+      if (listenerId !== undefined) {
+        target.postMessage(
+          {
+            __tcfapiCall: {
+              command: 'removeEventListener',
+              version: 2,
+              callId: crypto.randomUUID(),
+              parameter: listenerId,
+            },
+          },
+          '*',
+        );
+      }
       resolve(result);
     };
     const onMessage = (event: MessageEvent<unknown>) => {
@@ -149,27 +163,15 @@ export function verifyTcfViaPostMessage(
         finish({ verified: false, reason: 'TCF API listener registration failed' });
         return;
       }
-      const verification = verifyTcfData(returned.returnValue);
-      if (verification.verified) {
-        const listenerId =
-          returned.returnValue && typeof returned.returnValue === 'object'
-            ? (returned.returnValue as TcfData).listenerId
-            : undefined;
-        if (typeof listenerId === 'number' || typeof listenerId === 'string') {
-          target.postMessage(
-            {
-              __tcfapiCall: {
-                command: 'removeEventListener',
-                version: 2,
-                callId: crypto.randomUUID(),
-                parameter: listenerId,
-              },
-            },
-            '*',
-          );
-        }
-        finish(verification);
+      const returnedListenerId =
+        returned.returnValue && typeof returned.returnValue === 'object'
+          ? (returned.returnValue as TcfData).listenerId
+          : undefined;
+      if (typeof returnedListenerId === 'number' || typeof returnedListenerId === 'string') {
+        listenerId = returnedListenerId;
       }
+      const verification = verifyTcfData(returned.returnValue);
+      if (verification.verified) finish(verification);
     };
     const timer = currentWindow.setTimeout(
       () => finish({ verified: false, reason: 'TCF API did not provide verified state in time' }),

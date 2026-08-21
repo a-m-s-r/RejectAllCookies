@@ -11,13 +11,30 @@ export function normalizeText(value: string): string {
 
 export function accessibleText(element: Element): string {
   const labelled = element.getAttribute('aria-label') ?? '';
+  const root = element.getRootNode();
+  const labelledBy = (element.getAttribute('aria-labelledby') ?? '')
+    .split(/\s+/u)
+    .filter(Boolean)
+    .map((id) => {
+      const label =
+        root instanceof ShadowRoot
+          ? root.getElementById(id)
+          : element.ownerDocument.getElementById(id);
+      return label?.textContent ?? '';
+    })
+    .join(' ');
   const title = element.getAttribute('title') ?? '';
-  return normalizeText(`${labelled} ${title} ${element.textContent}`);
+  const value =
+    element instanceof HTMLInputElement && ['button', 'submit'].includes(element.type)
+      ? element.value
+      : '';
+  return normalizeText(`${labelled} ${labelledBy} ${title} ${value} ${element.textContent}`);
 }
 
 export function matchesConcept(text: string, concept: Concept): boolean {
   const normalized = normalizeText(text);
-  return LEXICON[concept].some((phrase) => normalized.includes(normalizeText(phrase)));
+  const padded = ` ${normalized} `;
+  return LEXICON[concept].some((phrase) => padded.includes(` ${normalizeText(phrase)} `));
 }
 
 export type ActionMeaning =
