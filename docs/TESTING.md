@@ -8,6 +8,8 @@ The packaged-extension Playwright suite has seven passing Chromium scenarios cov
 
 `pnpm test:live` runs an opt-in, clean-profile Chromium smoke matrix against public Didomi, Usercentrics, OneTrust, and Cookiebot pages plus two complex publisher sites. It records only clicked control labels and fails if an affirmative-consent action is observed. Because live pages and regional banners change without notice, this is a release-time smoke test rather than a deterministic CI gate.
 
+CI audits production dependencies at high severity. Development-tool advisories are reviewed separately because build-only packages are not included in the extension bundle.
+
 `pnpm test:performance` constructs a 10,000-element non-consent document and enforces a generous deterministic scan ceiling. The ceiling is intended to catch catastrophic traversal regressions, not serve as a browser benchmark.
 
 ## Firefox Android
