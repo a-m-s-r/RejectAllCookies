@@ -2,7 +2,7 @@
 
 `pnpm check` runs formatting, lint, strict TypeScript, unit/integration coverage, and Chromium/Firefox production builds. `pnpm validate:firefox-manifest` validates the built Firefox manifest without depending on the vulnerable `web-ext` toolchain. After a Chromium build and `pnpm exec playwright install chromium`, `pnpm test:e2e` loads the real extension into Playwright's bundled Chromium.
 
-The automated suite currently has 107 unit/integration/performance tests. It covers multilingual classification, unsafe positive vocabulary, negation, proven OFF control behavior, generic reject preference, ordinary-form guards, dedicated CMP routing and minimization, persistence verification, frame arbitration, TCF verification, bounded vendor traversal, and composed-tree visibility safety. The measured suite passes at 95.61% for statements and lines, 98% for functions, and 87.19% for branches.
+The automated suite currently has 108 unit/integration/performance tests. It covers multilingual classification, unsafe positive vocabulary, negation, proven OFF control behavior, generic reject preference, ordinary-form guards, dedicated CMP routing and minimization, persistence verification, frame arbitration, TCF verification, bounded vendor traversal, and composed-tree visibility safety. The measured suite passes at 95.61% for statements and lines, 98% for functions, and 87.28% for branches.
 
 The packaged-extension Playwright suite has seven passing Chromium scenarios covering dynamic insertion, rejection without affirmative consent, reload persistence, popup loading, complex category/vendor/legitimate-interest settings, ordinary-form false positives, open Shadow DOM, child frames, and delayed SPA routing.
 

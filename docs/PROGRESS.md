@@ -32,7 +32,7 @@
 
 ## Current limitations
 
-- The complete automated gate passes: formatting, ESLint, strict TypeScript, 107 unit/integration/performance tests, coverage thresholds, Chromium and Firefox MV3 production builds, and Firefox package validation.
+- The complete automated gate passes: formatting, ESLint, strict TypeScript, 108 unit/integration/performance tests, coverage thresholds, Chromium and Firefox MV3 production builds, and Firefox package validation.
 - Generic purpose/vendor controls are handled only when their optional meaning and ON state are both provable. Dedicated adapters still need CMP-specific exhaustive purpose/vendor/legitimate-interest flows.
 - SPA URL changes rearm bounded detection. Virtualized vendor traversal is bounded and records UI coverage but cannot prove an opaque CMP exposed its full dataset.
 - Seven packaged-extension Playwright scenarios pass in Chromium. An opt-in live-site smoke matrix covers four public CMP/vendor pages and two complex publisher sites without observing an affirmative action. Firefox desktop and Android still require hands-on browser testing.

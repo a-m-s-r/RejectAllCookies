@@ -28,6 +28,7 @@ export function planFirstAction(
       target: manage.target,
       evidence: [`classified:${manage.text}`],
     };
+
   const toggleAction = planPreferenceAction(surface, false, excluded);
   if (
     toggleAction &&
