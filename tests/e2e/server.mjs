@@ -58,6 +58,48 @@ document.querySelector('#manage').addEventListener('click', () => {
   });
 });`,
   ),
+  '/usercentrics-layered': page(
+    '<main><h1>Layered Usercentrics fixture</h1><div id="usercentrics-root"></div></main>',
+    `
+const host = document.querySelector('#usercentrics-root');
+const shadow = host.attachShadow({ mode: 'open' });
+const dialog = document.createElement('section');
+dialog.setAttribute('role', 'dialog');
+dialog.dataset.testid = 'uc-default-ui';
+dialog.style.position = 'fixed';
+dialog.innerHTML = '<h2>Privacy settings</h2><p>Cookies, advertising, analytics, personalization and device identification</p>' +
+  '<button data-testid="uc-more-button">Manage privacy settings</button><button id="accept-all">Accept all</button>';
+shadow.append(dialog);
+dialog.querySelector('#accept-all').addEventListener('click', () => localStorage.setItem('uc-unsafe', 'accept-all'));
+dialog.querySelector('[data-testid="uc-more-button"]').addEventListener('click', () => {
+  dialog.innerHTML = '<h2>Privacy settings</h2>' +
+    '<label>Necessary authentication <input id="uc-required" type="checkbox" checked disabled></label>' +
+    '<label>Optional analytics and measurement <input id="uc-analytics" type="checkbox" checked></label>' +
+    '<button data-testid="uc-show-vendors">View vendors and partners</button>' +
+    '<button id="uc-accept-selected">Accept selected</button>';
+  dialog.querySelector('#uc-accept-selected').addEventListener('click', () => localStorage.setItem('uc-unsafe', 'accept-selected'));
+  dialog.querySelector('[data-testid="uc-show-vendors"]').addEventListener('click', event => {
+    event.currentTarget.remove();
+    dialog.insertAdjacentHTML('beforeend',
+      '<section><h3>Advertising vendors and legitimate interest</h3>' +
+      '<label>Acme tracking pixel vendor <span id="uc-vendor" role="switch" aria-checked="true"></span></label>' +
+      '<label>Legitimate interest profiling <span id="uc-li" role="switch" aria-checked="true"></span></label></section>' +
+      '<button id="uc-save">Save choices</button>');
+    for (const id of ['uc-vendor', 'uc-li']) {
+      dialog.querySelector('#' + id).addEventListener('click', click => click.currentTarget.setAttribute('aria-checked', 'false'));
+    }
+    dialog.querySelector('#uc-save').addEventListener('click', () => {
+      localStorage.setItem('uc-result', JSON.stringify({
+        required: dialog.querySelector('#uc-required').checked,
+        analytics: dialog.querySelector('#uc-analytics').checked,
+        vendor: dialog.querySelector('#uc-vendor').getAttribute('aria-checked'),
+        legitimateInterest: dialog.querySelector('#uc-li').getAttribute('aria-checked')
+      }));
+      dialog.remove();
+    });
+  });
+});`,
+  ),
   '/false-positives': page(
     '<main><form id="login"><h2>Login</h2><p>Read our privacy policy</p><label>Remember me <input id="remember" type="checkbox" checked></label><button>Agree and sign in</button></form><div role="dialog"><h2>Privacy-friendly newsletter</h2><button>Subscribe</button><button>No thanks</button></div><section role="dialog"><h2>Cookie Magazine age gate</h2><button>I am over 18</button><button>Leave</button></section></main>',
     `document.addEventListener('click', event => { if (event.target instanceof HTMLElement) localStorage.setItem('unexpected-click', event.target.textContent || 'unknown'); });`,

@@ -36,6 +36,40 @@ test('minimizes purposes, vendors, and legitimate interest before saving', async
   expect(await page.evaluate(() => localStorage.getItem('unsafe'))).toBeNull();
 });
 
+test('crawls layered Usercentrics controls and reports the complete sweep in an alert', async ({
+  page,
+}) => {
+  const summary = new Promise<string>((resolve) => {
+    page.once('dialog', (dialog) => {
+      resolve(dialog.message());
+      void dialog.accept();
+    });
+  });
+  await page.goto('http://127.0.0.1:4173/usercentrics-layered');
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('uc-result'))).not.toBeNull();
+  expect(await page.evaluate(() => localStorage.getItem('uc-result'))).toBe(
+    JSON.stringify({
+      required: true,
+      analytics: false,
+      vendor: 'false',
+      legitimateInterest: 'false',
+    }),
+  );
+  expect(await page.evaluate(() => localStorage.getItem('uc-unsafe'))).toBeNull();
+  await expect(summary).resolves.toMatch(/Website wanted:/iu);
+  for (const requested of [
+    'advertising',
+    'profiling',
+    'measurement/analytics',
+    'device identification',
+  ]) {
+    await expect(summary).resolves.toContain(requested);
+  }
+  await expect(summary).resolves.toMatch(/blocked 1 active vendor authorization/iu);
+  await expect(summary).resolves.toMatch(/objected to 1 legitimate-interest control/iu);
+  await expect(summary).resolves.toMatch(/1 locked required control.*remained allowed/iu);
+});
+
 test('does not touch login, newsletter, or age-gate controls', async ({ page }) => {
   await page.goto('http://127.0.0.1:4173/false-positives');
   await page.waitForTimeout(1_000);

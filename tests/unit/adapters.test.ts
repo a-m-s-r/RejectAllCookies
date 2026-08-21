@@ -80,4 +80,30 @@ describe('dedicated CMP adapters', () => {
     const surface = adapter?.detect(document);
     expect(surface && adapter?.plan(surface)?.intent).toBe('openPreferences');
   });
+  it('walks Didomi denial radios, the partner layer, and save without selecting agree', () => {
+    document.body.innerHTML = `
+      <div id="didomi-popup">
+        <div data-testid="dialog-purposes">
+          <section><span>Advertising profiles</span><button class="didomi-components-radio__option" role="radio" aria-checked="false">Disagree</button><button class="didomi-components-radio__option" role="radio" aria-checked="false">Agree</button></section>
+          <button class="didomi-consent-popup-view-vendors-list-link">View our partners</button>
+          <button id="btn-toggle-save">Save choices</button>
+        </div>
+      </div>`;
+    const adapter = CMP_ADAPTERS.find((candidate) => candidate.id === 'didomi');
+    const surface = adapter?.detect(document);
+    if (!surface || !adapter?.planPreferences) throw new Error('Didomi fixture failed');
+    const purposeAction = adapter.planPreferences(surface, false, new Set());
+    expect(purposeAction?.intent).toBe('disablePurpose');
+    expect(purposeAction?.evidence.includes('denial-radio-option')).toBe(true);
+    const disagree = document.querySelector<HTMLElement>('button[aria-checked="false"]');
+    if (!disagree) throw new Error('Didomi denial fixture failed');
+    disagree.setAttribute('aria-checked', 'true');
+    const selected = new Set<Element>([disagree]);
+    const partnerAction = adapter.planPreferences(surface, false, selected);
+    expect(partnerAction?.intent).toBe('openPreferences');
+    if (!partnerAction) throw new Error('Didomi partner fixture failed');
+    expect(
+      adapter.planPreferences(surface, true, new Set([disagree, partnerAction.target]))?.intent,
+    ).toBe('savePreferences');
+  });
 });

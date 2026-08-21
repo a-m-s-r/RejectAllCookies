@@ -62,7 +62,7 @@ function controlContext(control: HTMLElement): string {
     ' ' +
     (labelledText ?? '') +
     ' ' +
-    (group?.textContent ?? '')
+    (label ? '' : (group?.textContent ?? ''))
   );
 }
 

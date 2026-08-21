@@ -26,7 +26,7 @@ if (host) {
       ? null
       : await browser.runtime.sendMessage({ type: 'get-tab-status', tabId: tab.id });
   if (recorded) {
-    status.textContent = formatStatus(recorded.result.status);
+    status.textContent = formatSweep(recorded.result);
     diagnostics.hidden = false;
     diagnosticText.textContent = JSON.stringify(
       {
@@ -41,6 +41,20 @@ if (host) {
       2,
     );
   }
+}
+
+function formatSweep(result: EngineResult): string {
+  const purposes = result.actions.filter((action) => action === 'disablePurpose').length;
+  const vendors = result.actions.filter((action) => action === 'disableVendor').length;
+  const objections = result.actions.filter(
+    (action) => action === 'objectLegitimateInterest',
+  ).length;
+  const parts = [formatStatus(result.status)];
+  if (purposes > 0) parts.push(`${String(purposes)} purpose denial(s)`);
+  if (vendors > 0) parts.push(`${String(vendors)} vendor denial sweep(s)`);
+  if (objections > 0) parts.push(`${String(objections)} legitimate-interest objection(s)`);
+  if (result.actions.includes('savePreferences')) parts.push('saved');
+  return parts.join(' · ');
 }
 
 enabled.addEventListener('change', () => {

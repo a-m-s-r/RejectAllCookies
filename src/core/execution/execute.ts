@@ -19,6 +19,13 @@ export function executeAction(action: ConsentAction): boolean {
     action.intent === 'disableVendor' ||
     action.intent === 'objectLegitimateInterest'
   ) {
+    if (
+      action.target.matches('[role="radio"]') &&
+      action.evidence.includes('denial-radio-option')
+    ) {
+      action.target.click();
+      return action.target.getAttribute('aria-checked') === 'true';
+    }
     const state =
       action.target.getAttribute('aria-checked') ?? action.target.getAttribute('aria-pressed');
     if (

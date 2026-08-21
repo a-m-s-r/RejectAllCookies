@@ -1,6 +1,8 @@
 import type { CmpAdapter } from '../types';
 import { surfaceDismissalResult } from '../../core/verification/surface';
 import { isElementVisible } from '../../core/detection/surface';
+import { accessibleText, matchesConcept } from '../../core/classification/text';
+import { planPreferenceAction } from '../../core/planning/planner';
 
 function firstVisible(root: ParentNode, selectors: string): HTMLElement | null {
   return [...root.querySelectorAll<HTMLElement>(selectors)].find(isElementVisible) ?? null;
@@ -37,6 +39,32 @@ export const usercentricsAdapter: CmpAdapter = {
           evidence: ['adapter:usercentrics', 'preferences-testid'],
         }
       : null;
+  },
+  planPreferences(surface, allowSave, excluded) {
+    const privacyAction = planPreferenceAction(surface, false, excluded);
+    if (privacyAction) return privacyAction;
+
+    const detailLayer = [
+      ...surface.root.querySelectorAll<HTMLElement>(
+        'button, [role="button"], [data-testid*="service" i], [data-testid*="vendor" i], [data-testid*="partner" i]',
+      ),
+    ].find((control) => {
+      if (excluded.has(control) || !isElementVisible(control)) return false;
+      const testId = control.getAttribute('data-testid') ?? '';
+      const text = accessibleText(control);
+      return (
+        /(?:service|vendor|partner).*(?:list|detail|setting)|(?:show|view|manage).*(?:service|vendor|partner)/iu.test(
+          testId,
+        ) || matchesConcept(text, 'vendor')
+      );
+    });
+    if (detailLayer)
+      return {
+        intent: 'openPreferences',
+        target: detailLayer,
+        evidence: ['adapter:usercentrics', 'open-vendor-or-service-layer'],
+      };
+    return planPreferenceAction(surface, allowSave, excluded);
   },
   verify(doc) {
     const rejectStillPresent =
