@@ -29,14 +29,11 @@ function denialAction(
   const row = target.closest<HTMLElement>(
     '[class*="data-processing"], [class*="vendor"], li, section',
   );
+  const context = row ?? target.parentElement?.parentElement ?? target;
   return {
     intent,
     target,
-    evidence: [
-      'adapter:didomi',
-      'denial-radio-option',
-      accessibleText(row ?? target).slice(0, 160),
-    ],
+    evidence: ['adapter:didomi', 'denial-radio-option', accessibleText(context).slice(0, 160)],
   };
 }
 

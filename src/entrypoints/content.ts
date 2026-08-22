@@ -4,6 +4,7 @@ import { verifyTcfViaPostMessage } from '../core/verification/tcf';
 import type { ConsentAction } from '../core/domain';
 
 const MAX_OBSERVER_LIFETIME_MS = 60_000;
+const STALLED_WORKFLOW_GRACE_MS = 2_500;
 const DEBOUNCE_MS = 150;
 const URL_CHECK_INTERVAL_MS = 1_000;
 
@@ -20,6 +21,7 @@ export default defineContentScript({
     let running = false;
     let observedUrl = location.href;
     let observerLifetimeTimer: number | undefined;
+    let stalledWorkflowTimer: number | undefined;
     const workflowActions: ReturnType<typeof engine.handle>['actions'][number][] = [];
     const requestedKinds = new Set<string>();
     const vendorNames = new Set<string>();
@@ -86,14 +88,17 @@ export default defineContentScript({
       const objections = workflowActions.filter(
         (action) => action === 'objectLegitimateInterest',
       ).length;
+      const vendorActions = workflowActions.filter((action) => action === 'disableVendor').length;
+      const vendorsProcessed = Math.max(vendorDenials, vendorActions);
       const requested = requestedKinds.size > 0 ? [...requestedKinds].join(', ') : 'consent data';
       const vendorSample = [...vendorNames].slice(0, 4).join('; ');
       const operations: string[] = [];
+      if (workflowActions.includes('openPreferences')) operations.push('opened privacy settings');
       if (workflowActions.includes('rejectAll'))
         operations.push('used the strongest Reject all option');
       if (purposes > 0) operations.push(`denied ${String(purposes)} purpose(s)`);
-      if (vendorDenials > 0)
-        operations.push(`blocked ${String(vendorDenials)} active vendor authorization(s)`);
+      if (vendorsProcessed > 0)
+        operations.push(`blocked ${String(vendorsProcessed)} active vendor authorization(s)`);
       if (objections > 0)
         operations.push(`objected to ${String(objections)} legitimate-interest control(s)`);
       if (workflowActions.includes('savePreferences')) operations.push('saved the choices');
@@ -134,9 +139,20 @@ export default defineContentScript({
         if (window === window.top && inspection.status !== 'not_detected') {
           await report(inspection);
         }
+        if (workflowActions.length > 0) {
+          clearTimeout(stalledWorkflowTimer);
+          stalledWorkflowTimer = ctx.setTimeout(() => {
+            showSweepSummary({
+              status: 'unsupported',
+              reason: inspection.reason,
+              actions: [...workflowActions],
+            });
+          }, STALLED_WORKFLOW_GRACE_MS);
+        }
         running = false;
         return;
       }
+      clearTimeout(stalledWorkflowTimer);
       let granted: unknown;
       try {
         granted = await browser.runtime.sendMessage({
@@ -192,6 +208,7 @@ export default defineContentScript({
       completed = false;
       observer.disconnect();
       clearTimeout(observerLifetimeTimer);
+      clearTimeout(stalledWorkflowTimer);
       observer.observe(document, {
         childList: true,
         subtree: true,

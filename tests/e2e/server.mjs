@@ -100,6 +100,16 @@ dialog.querySelector('[data-testid="uc-more-button"]').addEventListener('click',
   });
 });`,
   ),
+  '/stalled-consent-workflow': page(
+    '<main><h1>Stalled workflow fixture</h1></main><div role="dialog" style="position:fixed"><h2>Cookie privacy consent</h2><button id="manage">Manage privacy settings</button><button id="accept">Accept all</button></div>',
+    `
+document.querySelector('#accept').addEventListener('click', () => localStorage.setItem('stalled-unsafe', 'accept-all'));
+document.querySelector('#manage').addEventListener('click', () => {
+  const dialog = document.querySelector('[role="dialog"]');
+  dialog.innerHTML = '<h2>Welcome to the product tour</h2><button id="next">Next</button>';
+  dialog.querySelector('#next').addEventListener('click', () => localStorage.setItem('stalled-unsafe', 'next'));
+});`,
+  ),
   '/false-positives': page(
     '<main><form id="login"><h2>Login</h2><p>Read our privacy policy</p><label>Remember me <input id="remember" type="checkbox" checked></label><button>Agree and sign in</button></form><div role="dialog"><h2>Privacy-friendly newsletter</h2><button>Subscribe</button><button>No thanks</button></div><section role="dialog"><h2>Cookie Magazine age gate</h2><button>I am over 18</button><button>Leave</button></section></main>',
     `document.addEventListener('click', event => { if (event.target instanceof HTMLElement) localStorage.setItem('unexpected-click', event.target.textContent || 'unknown'); });`,

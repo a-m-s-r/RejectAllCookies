@@ -70,6 +70,19 @@ test('crawls layered Usercentrics controls and reports the complete sweep in an 
   await expect(summary).resolves.toMatch(/1 locked required control.*remained allowed/iu);
 });
 
+test('promptly reports when a consent workflow stalls in a non-consent layer', async ({ page }) => {
+  const summary = new Promise<string>((resolve) => {
+    page.once('dialog', (dialog) => {
+      resolve(dialog.message());
+      void dialog.accept();
+    });
+  });
+  await page.goto('http://127.0.0.1:4173/stalled-consent-workflow');
+  await expect(summary).resolves.toMatch(/Extension did: opened privacy settings/iu);
+  await expect(summary).resolves.toMatch(/Result: Sweep incomplete:/iu);
+  expect(await page.evaluate(() => localStorage.getItem('stalled-unsafe'))).toBeNull();
+});
+
 test('does not touch login, newsletter, or age-gate controls', async ({ page }) => {
   await page.goto('http://127.0.0.1:4173/false-positives');
   await page.waitForTimeout(1_000);

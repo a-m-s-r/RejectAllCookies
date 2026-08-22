@@ -23,7 +23,7 @@ export function executeAction(action: ConsentAction): boolean {
       action.target.matches('[role="radio"]') &&
       action.evidence.includes('denial-radio-option')
     ) {
-      action.target.click();
+      activateWithoutJavascriptNavigation(action.target);
       return action.target.getAttribute('aria-checked') === 'true';
     }
     const state =
@@ -36,8 +36,29 @@ export function executeAction(action: ConsentAction): boolean {
     )
       return setControlOff(action.target);
   }
-  action.target.click();
+  activateWithoutJavascriptNavigation(action.target);
   return true;
+}
+
+function activateWithoutJavascriptNavigation(element: HTMLElement): void {
+  const javascriptLink =
+    element instanceof HTMLAnchorElement &&
+    /^\s*javascript:/iu.test(element.getAttribute('href') ?? '');
+  if (!javascriptLink) {
+    element.click();
+    return;
+  }
+
+  // Frameworks sometimes retain a javascript: fallback while also registering
+  // a real click handler. Let that handler run, but suppress navigation so the
+  // page's CSP is never asked to execute code from the URL.
+  element.addEventListener('click', (event) => event.preventDefault(), {
+    capture: true,
+    once: true,
+  });
+  element.dispatchEvent(
+    new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, view: window }),
+  );
 }
 
 function isInteractable(element: HTMLElement): boolean {

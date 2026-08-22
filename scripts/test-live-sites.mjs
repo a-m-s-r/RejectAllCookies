@@ -46,10 +46,25 @@ const unsafe =
   /\b(?:accept all|accept selected|allow all|allow partners|agree(?: and continue)?|enable all|consent to all)\b/iu;
 let unsafeCount = 0;
 let residualCount = 0;
+let missingSummaryCount = 0;
+let javascriptCspViolationCount = 0;
 
 for (const [name, url] of sites) {
   const page = await context.newPage();
-  page.on('dialog', (dialog) => void dialog.accept());
+  const summaryAlerts = [];
+  const javascriptCspViolations = [];
+  page.on('console', (message) => {
+    if (/Running the JavaScript URL violates/iu.test(message.text())) {
+      javascriptCspViolations.push(message.text());
+      javascriptCspViolationCount += 1;
+    }
+  });
+  page.on('dialog', (dialog) => {
+    if (dialog.type() === 'alert' && dialog.message().startsWith('Consent sweep')) {
+      summaryAlerts.push(dialog.message());
+    }
+    void dialog.accept();
+  });
   let navigation = 'loaded';
   try {
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
@@ -129,6 +144,9 @@ for (const [name, url] of sites) {
   }
   unsafeCount += unsafeLabels.length;
   residualCount += residualSurfaces.length;
+  if (labels.length > 0 && residualSurfaces.length === 0 && summaryAlerts.length === 0) {
+    missingSummaryCount += 1;
+  }
   console.log(
     JSON.stringify({
       name,
@@ -138,6 +156,8 @@ for (const [name, url] of sites) {
       unsafe: unsafeLabels,
       residualSurfaces,
       residualControls,
+      summaryAlerts,
+      javascriptCspViolations,
     }),
   );
   await page.close();
@@ -149,4 +169,12 @@ if (unsafeCount > 0) {
 }
 if (residualCount > 0) {
   throw new Error(`Observed ${String(residualCount)} consent surface(s) left visible`);
+}
+if (missingSummaryCount > 0) {
+  throw new Error(`Missing ${String(missingSummaryCount)} expected consent sweep alert(s)`);
+}
+if (javascriptCspViolationCount > 0) {
+  throw new Error(
+    `Observed ${String(javascriptCspViolationCount)} blocked javascript-URL activation(s)`,
+  );
 }
