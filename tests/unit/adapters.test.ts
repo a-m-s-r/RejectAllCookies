@@ -84,7 +84,8 @@ describe('dedicated CMP adapters', () => {
     document.body.innerHTML = `
       <div id="didomi-popup">
         <div data-testid="dialog-purposes">
-          <section><span>Advertising profiles</span><button class="didomi-components-radio__option" role="radio" aria-checked="false">Disagree</button><button class="didomi-components-radio__option" role="radio" aria-checked="false">Agree</button></section>
+          <section><span>Advertising profiles</span><button class="didomi-components-radio__option" role="radio" aria-label="Disagree" aria-checked="false"><span>Disagree</span></button><button class="didomi-components-radio__option" role="radio" aria-label="Agree" aria-checked="false"><span>Agree</span></button></section>
+          <section><span>Content measurement</span><button class="didomi-components-radio__option" role="radio" aria-label="Disagree" aria-checked="false"><span>Disagree</span></button><button class="didomi-components-radio__option" role="radio" aria-label="Agree" aria-checked="false"><span>Agree</span></button></section>
           <button class="didomi-consent-popup-view-vendors-list-link">View our partners</button>
           <button id="btn-toggle-save">Save choices</button>
         </div>
@@ -99,11 +100,16 @@ describe('dedicated CMP adapters', () => {
     if (!disagree) throw new Error('Didomi denial fixture failed');
     disagree.setAttribute('aria-checked', 'true');
     const selected = new Set<Element>([disagree]);
+    const secondPurposeAction = adapter.planPreferences(surface, false, selected);
+    expect(secondPurposeAction?.intent).toBe('disablePurpose');
+    if (!secondPurposeAction) throw new Error('Second Didomi purpose fixture failed');
+    secondPurposeAction.target.setAttribute('aria-checked', 'true');
+    selected.add(secondPurposeAction.target);
     const partnerAction = adapter.planPreferences(surface, false, selected);
     expect(partnerAction?.intent).toBe('openPreferences');
     if (!partnerAction) throw new Error('Didomi partner fixture failed');
     expect(
-      adapter.planPreferences(surface, true, new Set([disagree, partnerAction.target]))?.intent,
+      adapter.planPreferences(surface, true, new Set([...selected, partnerAction.target]))?.intent,
     ).toBe('savePreferences');
   });
 });

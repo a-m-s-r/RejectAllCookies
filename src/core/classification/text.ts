@@ -28,7 +28,20 @@ export function accessibleText(element: Element): string {
     element instanceof HTMLInputElement && ['button', 'submit'].includes(element.type)
       ? element.value
       : '';
-  return normalizeText(`${labelled} ${labelledBy} ${title} ${value} ${element.textContent}`);
+  const textParts: string[] = [];
+  const walker = element.ownerDocument.createTreeWalker(element, 4);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (node.textContent) textParts.push(node.textContent);
+  }
+  const explicitName = labelledBy || labelled || title || value;
+  const isControl = element.matches(
+    'button, a, input, select, textarea, [role="button"], [role="radio"], [role="switch"], [role="checkbox"], [role="tab"]',
+  );
+  return normalizeText(
+    isControl && explicitName
+      ? explicitName
+      : `${labelled} ${labelledBy} ${title} ${value} ${textParts.join(' ')}`,
+  );
 }
 
 export function matchesConcept(text: string, concept: Concept): boolean {

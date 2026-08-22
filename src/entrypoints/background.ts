@@ -1,6 +1,7 @@
 import { FrameArbiter } from '../platform/frame-arbiter';
 import type { EngineResult } from '../cmp/types';
 import { purgeLegacyStatusRecords } from '../shared/settings';
+import { isSweepCompleteMessage, type SweepDisplayMessage } from '../shared/sweep-messages';
 
 interface ClaimMessage {
   readonly type: 'claim-consent-action';
@@ -41,15 +42,38 @@ export default defineBackground(() => {
     { readonly result: EngineResult; readonly updatedAt: number }
   >();
 
+  const displaySweep = async (tabId: number, message: SweepDisplayMessage) => {
+    try {
+      await browser.tabs.sendMessage(tabId, message, { frameId: 0 });
+      return true;
+    } catch {
+      // A top-frame script may be unavailable on browser-owned or unloading pages.
+      return false;
+    }
+  };
+
   // WebExtension message listeners intentionally return promises for asynchronous replies.
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   browser.runtime.onMessage.addListener((message: unknown, sender) => {
     if (isClaimMessage(message) && sender.tab?.id !== undefined) {
-      return arbiter.claim(sender.tab.id, {
-        frameId: sender.frameId ?? 0,
-        confidence: message.confidence,
-        dedicated: message.dedicated,
-        topFrame: message.topFrame,
+      const tabId = sender.tab.id;
+      return arbiter
+        .claim(tabId, {
+          frameId: sender.frameId ?? 0,
+          confidence: message.confidence,
+          dedicated: message.dedicated,
+          topFrame: message.topFrame,
+        })
+        .then(async (granted) => {
+          if (granted) await displaySweep(tabId, { type: 'display-consent-sweep', active: true });
+          return granted;
+        });
+    }
+    if (isSweepCompleteMessage(message) && sender.tab?.id !== undefined) {
+      return displaySweep(sender.tab.id, {
+        type: 'display-consent-sweep',
+        active: false,
+        ...(message.summary ? { summary: message.summary } : {}),
       });
     }
     if (message && typeof message === 'object') {

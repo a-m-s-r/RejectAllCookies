@@ -110,8 +110,22 @@ document.querySelector('#manage').addEventListener('click', () => {
   dialog.querySelector('#next').addEventListener('click', () => localStorage.setItem('stalled-unsafe', 'next'));
 });`,
   ),
+  '/transient-consent-control': page(
+    '<main><h1>Transient control fixture</h1></main><div role="dialog" style="position:fixed"><h2>Cookie privacy preferences</h2><label>Optional analytics <span id="transient-switch" role="switch" aria-checked="true"></span></label><button id="transient-save">Save choices</button></div>',
+    `
+let attempts = 0;
+document.querySelector('#transient-switch').addEventListener('click', event => {
+  attempts += 1;
+  localStorage.setItem('transient-attempts', String(attempts));
+  if (attempts >= 2) event.currentTarget.setAttribute('aria-checked', 'false');
+});
+document.querySelector('#transient-save').addEventListener('click', () => {
+  localStorage.setItem('transient-result', document.querySelector('#transient-switch').getAttribute('aria-checked'));
+  document.querySelector('[role="dialog"]').remove();
+});`,
+  ),
   '/false-positives': page(
-    '<main><form id="login"><h2>Login</h2><p>Read our privacy policy</p><label>Remember me <input id="remember" type="checkbox" checked></label><button>Agree and sign in</button></form><div role="dialog"><h2>Privacy-friendly newsletter</h2><button>Subscribe</button><button>No thanks</button></div><section role="dialog"><h2>Cookie Magazine age gate</h2><button>I am over 18</button><button>Leave</button></section></main>',
+    '<main><form id="login"><h2>Login</h2><p>Read our privacy policy</p><label>Remember me <input id="remember" type="checkbox" checked></label><button>Agree and sign in</button></form><div role="dialog"><h2>Privacy-friendly newsletter</h2><button>Subscribe</button><button>No thanks</button></div><section role="dialog"><h2>Cookie Magazine age gate</h2><button>I am over 18</button><button>Leave</button></section><div role="dialog"><h2>Privacy settings product tour</h2><button>Manage preferences</button><button>Next</button></div><div role="dialog"><h2>Privacy notifications</h2><button>Allow all</button><button>Deny all</button></div><div role="dialog"><h2>Location access and privacy</h2><button>Allow all</button><button>Deny all</button></div><div role="dialog"><h2>Privacy account settings</h2><button>Reject all changes</button><button>Save preferences</button></div></main>',
     `document.addEventListener('click', event => { if (event.target instanceof HTMLElement) localStorage.setItem('unexpected-click', event.target.textContent || 'unknown'); });`,
   ),
   '/shadow': page(
@@ -131,6 +145,26 @@ shadow.append(dialog);`,
   '/iframe-inner': page(
     '<main><h1>Inner frame</h1></main>',
     `${directBannerScript} showBanner('frame-choice');`,
+  ),
+  '/iframe-slow': page(
+    '<main><h1>Slow frame fixture</h1><iframe title="Consent frame" src="/iframe-slow-inner"></iframe></main>',
+  ),
+  '/iframe-slow-inner': page(
+    '<main><h1>Inner frame</h1></main><div role="dialog" style="position:fixed"><h2>Cookie privacy consent</h2><button id="manage">Manage privacy settings</button><button id="accept">Accept all</button></div>',
+    `
+document.querySelector('#accept').addEventListener('click', () => localStorage.setItem('frame-unsafe', 'accepted'));
+document.querySelector('#manage').addEventListener('click', () => {
+  const dialog = document.querySelector('[role="dialog"]');
+  dialog.innerHTML = '<h2>Loading privacy choices</h2><p>Please wait</p>';
+  setTimeout(() => {
+    dialog.innerHTML = '<h2>Cookie privacy choices</h2><button id="reject">Reject all</button><button id="accept-later">Accept all</button>';
+    dialog.querySelector('#accept-later').addEventListener('click', () => localStorage.setItem('frame-unsafe', 'accepted-later'));
+    dialog.querySelector('#reject').addEventListener('click', () => {
+      localStorage.setItem('slow-frame-choice', 'rejected');
+      dialog.remove();
+    });
+  }, 1200);
+});`,
   ),
   '/spa-delayed': page(
     '<main><h1>SPA fixture</h1></main>',

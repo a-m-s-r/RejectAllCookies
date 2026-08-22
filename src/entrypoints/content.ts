@@ -2,6 +2,9 @@ import { ConsentEngine, isInteractionPlan } from '../generic/engine';
 import { readSettings } from '../shared/settings';
 import { verifyTcfViaPostMessage } from '../core/verification/tcf';
 import type { ConsentAction } from '../core/domain';
+import { readControlState } from '../core/controls/state';
+import { isSweepDisplayMessage } from '../shared/sweep-messages';
+import { createSweepIndicator } from '../ui/sweep-indicator';
 
 const MAX_OBSERVER_LIFETIME_MS = 60_000;
 const STALLED_WORKFLOW_GRACE_MS = 2_500;
@@ -27,7 +30,25 @@ export default defineContentScript({
     const vendorNames = new Set<string>();
     let forcedAllowed = 0;
     let vendorDenials = 0;
+    let sweepAttempted = false;
     let summaryShown = false;
+    let summaryDisplayed = false;
+    let pendingAction: ConsentAction | undefined;
+    const sweepIndicator = createSweepIndicator(document);
+
+    browser.runtime.onMessage.addListener((message: unknown) => {
+      if (window !== window.top || !isSweepDisplayMessage(message)) return undefined;
+      if (message.active) {
+        sweepIndicator.show();
+        return undefined;
+      }
+      sweepIndicator.hide();
+      if (message.summary && !summaryDisplayed) {
+        summaryDisplayed = true;
+        alert(message.summary);
+      }
+      return undefined;
+    });
 
     const recordSweepEvidence = (action: ConsentAction) => {
       const evidence = action.evidence.join(' ');
@@ -53,10 +74,23 @@ export default defineContentScript({
           ?.replace(/^optional-control:/u, '')
           .replace(/\s+/gu, ' ')
           .trim();
-        if (detail && detail.length > 3 && !detail.startsWith('state:')) {
+        const genericControlLabel =
+          /^(?:(?:block|authorize|agree|accept|deny|disagree|refuse)\s*)+$/iu.test(detail ?? '');
+        if (detail && detail.length > 3 && !detail.startsWith('state:') && !genericControlLabel) {
           vendorNames.add(detail.slice(0, 80));
         }
       }
+    };
+
+    const confirmPendingAction = () => {
+      if (!pendingAction || !(pendingAction.target instanceof HTMLElement)) return;
+      const confirmed = pendingAction.evidence.includes('denial-radio-option')
+        ? pendingAction.target.getAttribute('aria-checked') === 'true'
+        : readControlState(pendingAction.target) === 'off';
+      if (!confirmed) return;
+      workflowActions.push(pendingAction.intent);
+      recordSweepEvidence(pendingAction);
+      pendingAction = undefined;
     };
 
     const countForcedAllowed = (consentRoot: Element) => {
@@ -81,9 +115,37 @@ export default defineContentScript({
       );
     };
 
-    const showSweepSummary = (result: ReturnType<typeof engine.handle>) => {
-      if (summaryShown || window !== window.top) return;
+    const relaySweepCompletion = (summary?: string) => {
+      const displayLocally = () => {
+        if (window !== window.top) return;
+        sweepIndicator.hide();
+        if (!summary || summaryDisplayed) return;
+        summaryDisplayed = true;
+        alert(summary);
+      };
+      void browser.runtime
+        .sendMessage({
+          type: 'complete-consent-sweep',
+          ...(summary ? { summary } : {}),
+        })
+        .then((delivered: unknown) => {
+          if (delivered !== true) displayLocally();
+        })
+        .catch(displayLocally);
+    };
+
+    const pauseSweep = () => {
+      clearTimeout(stalledWorkflowTimer);
+      relaySweepCompletion();
+    };
+
+    const finishSweep = (result: ReturnType<typeof engine.handle>) => {
+      if (summaryShown) return;
       summaryShown = true;
+      completed = true;
+      clearTimeout(stalledWorkflowTimer);
+      clearTimeout(observerLifetimeTimer);
+      observer.disconnect();
       const purposes = workflowActions.filter((action) => action === 'disablePurpose').length;
       const objections = workflowActions.filter(
         (action) => action === 'objectLegitimateInterest',
@@ -112,9 +174,12 @@ export default defineContentScript({
           : result.status === 'rejected_unverified'
             ? 'Saved/rejected, but persistence was not fully verified.'
             : `Sweep incomplete: ${result.reason}`;
-      alert(
-        `Consent sweep\n\nWebsite wanted: ${requested}${vendorSample ? `. Vendors included: ${vendorSample}` : ''}.\n\nExtension did: ${operations.length > 0 ? operations.join(', ') : 'no safe denial action was available'}.\n\nForced allowed: ${forced}\n\nResult: ${verification}`,
-      );
+      const neutralized =
+        result.status === 'rejected_verified' || result.status === 'rejected_unverified';
+      const summary = neutralized
+        ? `Consent sweep\n\nWebsite wanted: ${requested}${vendorSample ? `. Vendors included: ${vendorSample}` : ''}.\n\nExtension did: ${operations.length > 0 ? operations.join(', ') : 'no safe denial action was available'}.\n\nForced allowed: ${forced}\n\nResult: ${verification}`
+        : undefined;
+      relaySweepCompletion(summary);
     };
 
     const report = async (result: ReturnType<typeof engine.handle>) => {
@@ -134,6 +199,7 @@ export default defineContentScript({
     const scan = async () => {
       if (completed || running) return;
       running = true;
+      confirmPendingAction();
       const inspection = engine.inspect(document);
       if (!isInteractionPlan(inspection)) {
         if (window === window.top && inspection.status !== 'not_detected') {
@@ -142,11 +208,7 @@ export default defineContentScript({
         if (workflowActions.length > 0) {
           clearTimeout(stalledWorkflowTimer);
           stalledWorkflowTimer = ctx.setTimeout(() => {
-            showSweepSummary({
-              status: 'unsupported',
-              reason: inspection.reason,
-              actions: [...workflowActions],
-            });
+            pauseSweep();
           }, STALLED_WORKFLOW_GRACE_MS);
         }
         running = false;
@@ -174,9 +236,19 @@ export default defineContentScript({
         running = false;
         return;
       }
+      sweepAttempted = true;
       let result = engine.execute(inspection, document);
-      workflowActions.push(...result.actions);
-      if (result.status !== 'interaction_failed') recordSweepEvidence(inspection.action);
+      if (result.status !== 'interaction_failed') {
+        if (pendingAction?.target === inspection.action.target) pendingAction = undefined;
+        workflowActions.push(...result.actions);
+        recordSweepEvidence(inspection.action);
+      } else if (
+        inspection.action.intent === 'disablePurpose' ||
+        inspection.action.intent === 'disableVendor' ||
+        inspection.action.intent === 'objectLegitimateInterest'
+      ) {
+        pendingAction = inspection.action;
+      }
       countForcedAllowed(
         inspection.action.target.closest<HTMLElement>(
           '[role="dialog"], dialog, [aria-modal="true"]',
@@ -194,7 +266,8 @@ export default defineContentScript({
       }
       void report(result);
       completed = result.status === 'rejected_verified' || result.status === 'rejected_unverified';
-      if (completed) showSweepSummary(result);
+      if (result.status === 'interaction_failed') pauseSweep();
+      if (completed) finishSweep(result);
       if (completed) observer.disconnect();
       running = false;
       if (!completed && result.actions.length > 0) schedule();
@@ -217,8 +290,8 @@ export default defineContentScript({
       });
       observerLifetimeTimer = ctx.setTimeout(() => {
         observer.disconnect();
-        if (!completed && workflowActions.length > 0) {
-          showSweepSummary({
+        if (!completed && sweepAttempted) {
+          finishSweep({
             status: 'unsupported',
             reason: 'Timed out before every exposed consent layer could be proven complete',
             actions: [...workflowActions],
@@ -235,7 +308,11 @@ export default defineContentScript({
       vendorNames.clear();
       forcedAllowed = 0;
       vendorDenials = 0;
+      sweepAttempted = false;
       summaryShown = false;
+      summaryDisplayed = false;
+      pendingAction = undefined;
+      sweepIndicator.hide();
       arm();
     }, URL_CHECK_INTERVAL_MS);
     arm();

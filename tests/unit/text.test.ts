@@ -40,6 +40,18 @@ describe('semantic text classification', () => {
     const button = document.querySelector('button');
     expect(button && classifyAction(accessibleText(button))).toBe('rejectAll');
   });
+  it('preserves word boundaries between adjacent nested elements', () => {
+    document.body.innerHTML =
+      '<div><h2>Privacy notifications</h2><button>Allow all</button><button>Deny all</button></div>';
+    const dialog = document.querySelector('div');
+    expect(dialog && accessibleText(dialog)).toBe('privacy notifications allow all deny all');
+  });
+  it('uses a control aria-label instead of duplicating its decorative content', () => {
+    document.body.innerHTML =
+      '<button role="radio" aria-label="Disagree"><span>Disagree</span></button>';
+    const control = document.querySelector('button');
+    expect(control && accessibleText(control)).toBe('disagree');
+  });
   it('resolves aria-labelledby within an open shadow root', () => {
     const host = document.createElement('div');
     document.body.append(host);

@@ -31,16 +31,23 @@ function composedParent(element: HTMLElement): HTMLElement | null {
 export function scoreSurface(element: HTMLElement): ConsentSurface | null {
   const text = accessibleText(element);
   if (!matchesConcept(text, 'consentContext') || !isElementVisible(element)) return null;
+  if (matchesConcept(text, 'nonConsentContext')) return null;
   const evidence: string[] = [];
   let confidence = 35;
   evidence.push('consent vocabulary');
   const role = element.getAttribute('role');
-  if (role === 'dialog' || role === 'alertdialog' || element.tagName === 'DIALOG') {
+  const hasDialogSemantics =
+    role === 'dialog' ||
+    role === 'alertdialog' ||
+    element.tagName === 'DIALOG' ||
+    element.getAttribute('aria-modal') === 'true';
+  if (hasDialogSemantics) {
     confidence += 20;
     evidence.push('dialog semantics');
   }
   const style = getComputedStyle(element);
-  if (style.position === 'fixed' || style.position === 'sticky') {
+  const hasOverlayPosition = style.position === 'fixed' || style.position === 'sticky';
+  if (hasOverlayPosition) {
     confidence += 10;
     evidence.push('overlay positioning');
   }
@@ -53,9 +60,12 @@ export function scoreSurface(element: HTMLElement): ConsentSurface | null {
     confidence += 10;
     evidence.push('multiple actions');
   }
-  const hasPrivacyAction = actions.some((action) =>
-    /rejectAll|openPreferences/u.test(actionMeaning(action)),
+  const actionMeanings = actions.map(actionMeaning);
+  const hasPrivacyAction = actionMeanings.some((meaning) =>
+    /rejectAll|openPreferences/u.test(meaning),
   );
+  const hasConsentChoicePair =
+    actionMeanings.includes('rejectAll') && actionMeanings.includes('unsafe');
   if (hasPrivacyAction) {
     confidence += 25;
     evidence.push('privacy action');
@@ -71,6 +81,10 @@ export function scoreSurface(element: HTMLElement): ConsentSurface | null {
     confidence += 20;
     evidence.push('consent preference controls');
   }
+  const hasConsentDataContext = matchesConcept(text, 'consentDataContext');
+  const hasProvenConsentContext =
+    hasConsentDataContext || hasPreferenceControls || hasConsentChoicePair;
+  if (!hasProvenConsentContext || (!hasDialogSemantics && !hasOverlayPosition)) return null;
   if (element.closest('form') && !role && style.position !== 'fixed') confidence -= 35;
   return confidence >= 60 && (hasPrivacyAction || hasPreferenceControls)
     ? { root: element, confidence, evidence }

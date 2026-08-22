@@ -70,24 +70,49 @@ test('crawls layered Usercentrics controls and reports the complete sweep in an 
   await expect(summary).resolves.toMatch(/1 locked required control.*remained allowed/iu);
 });
 
-test('promptly reports when a consent workflow stalls in a non-consent layer', async ({ page }) => {
+test('clears progress without an alert when a consent workflow cannot be neutralized', async ({
+  page,
+}) => {
+  const dialogs: string[] = [];
+  page.on('dialog', (dialog) => {
+    dialogs.push(dialog.message());
+    void dialog.accept();
+  });
+  await page.goto('http://127.0.0.1:4173/stalled-consent-workflow');
+  await expect(page.getByRole('heading', { name: 'Welcome to the product tour' })).toBeVisible();
+  await expect(page.locator('[data-minimum-consent-sweep]')).toHaveCount(0, { timeout: 4_000 });
+  expect(dialogs).toEqual([]);
+  expect(await page.evaluate(() => localStorage.getItem('stalled-unsafe'))).toBeNull();
+});
+
+test('retries a transient consent control and alerts only after neutralization', async ({
+  page,
+}) => {
   const summary = new Promise<string>((resolve) => {
     page.once('dialog', (dialog) => {
       resolve(dialog.message());
       void dialog.accept();
     });
   });
-  await page.goto('http://127.0.0.1:4173/stalled-consent-workflow');
-  await expect(summary).resolves.toMatch(/Extension did: opened privacy settings/iu);
-  await expect(summary).resolves.toMatch(/Result: Sweep incomplete:/iu);
-  expect(await page.evaluate(() => localStorage.getItem('stalled-unsafe'))).toBeNull();
+  await page.goto('http://127.0.0.1:4173/transient-consent-control');
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem('transient-result')))
+    .toBe('false');
+  expect(await page.evaluate(() => localStorage.getItem('transient-attempts'))).toBe('2');
+  await expect(summary).resolves.toMatch(/denied 1 purpose\(s\)/iu);
 });
 
 test('does not touch login, newsletter, or age-gate controls', async ({ page }) => {
+  const dialogs: string[] = [];
+  page.on('dialog', (dialog) => {
+    dialogs.push(dialog.message());
+    void dialog.accept();
+  });
   await page.goto('http://127.0.0.1:4173/false-positives');
   await page.waitForTimeout(1_000);
   await expect(page.locator('#remember')).toBeChecked();
   expect(await page.evaluate(() => localStorage.getItem('unexpected-click'))).toBeNull();
+  expect(dialogs).toEqual([]);
 });
 
 test('rejects inside an open shadow root', async ({ page }) => {
@@ -102,6 +127,31 @@ test('coordinates rejection owned by a child frame', async ({ page }) => {
   await expect
     .poll(() => page.evaluate(() => localStorage.getItem('frame-choice')))
     .toBe('rejected');
+});
+
+test('shows tab-wide progress for a slow child-frame sweep and hides it before the summary', async ({
+  page,
+}) => {
+  const summary = new Promise<string>((resolve) => {
+    page.once('dialog', (dialog) => {
+      resolve(dialog.message());
+      void dialog.accept();
+    });
+  });
+  await page.goto('http://127.0.0.1:4173/iframe-slow');
+  const indicator = page.locator('[data-minimum-consent-sweep="active"]');
+  await expect(indicator).toBeVisible();
+  await expect(indicator).toContainText('Minimum Consent is working');
+  await expect(indicator).toContainText('Please wait before opening privacy settings');
+  await expect(summary).resolves.toMatch(/used the strongest Reject all option/iu);
+  await expect(indicator).toHaveCount(0);
+  const frame = page.frameLocator('iframe[title="Consent frame"]');
+  await expect
+    .poll(() => frame.locator('body').evaluate(() => localStorage.getItem('slow-frame-choice')))
+    .toBe('rejected');
+  expect(
+    await frame.locator('body').evaluate(() => localStorage.getItem('frame-unsafe')),
+  ).toBeNull();
 });
 
 test('rearms detection for a delayed SPA route', async ({ page }) => {
