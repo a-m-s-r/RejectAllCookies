@@ -16,7 +16,7 @@ interface KnownControlGroup {
 const KNOWN_CONTROL_GROUPS: readonly KnownControlGroup[] = [
   {
     selector:
-      '#CybotCookiebotDialogBodyLevelButtonPreferences, #CybotCookiebotDialogBodyLevelButtonStatistics, #CybotCookiebotDialogBodyLevelButtonMarketing, [name="preferences"], [name="statistics"], [name="marketing"]',
+      'input[id^="CybotCookiebotDialogBodyLevelButtonPreferences"], input[id^="CybotCookiebotDialogBodyLevelButtonStatistics"], input[id^="CybotCookiebotDialogBodyLevelButtonMarketing"], [name="preferences"], [name="statistics"], [name="marketing"]',
     intent: 'disablePurpose',
   },
   {
@@ -30,6 +30,24 @@ const KNOWN_CONTROL_GROUPS: readonly KnownControlGroup[] = [
   },
 ];
 
+function isKnownCookiebotControlAvailable(control: HTMLElement): boolean {
+  if (isElementVisible(control)) return true;
+  return (
+    control instanceof HTMLInputElement &&
+    !control.disabled &&
+    control.isConnected &&
+    control.parentElement instanceof HTMLElement &&
+    isElementVisible(control.parentElement)
+  );
+}
+
+function knownCategory(control: HTMLElement): string | null {
+  const match = /CybotCookiebotDialogBodyLevelButton(Preferences|Statistics|Marketing)/u.exec(
+    control.id,
+  );
+  return match?.[1]?.toLocaleLowerCase() ?? null;
+}
+
 function planCookiebotPreferences(
   surface: ConsentSurface,
   allowSave: boolean,
@@ -41,7 +59,7 @@ function planCookiebotPreferences(
   let unresolved = false;
   for (const group of KNOWN_CONTROL_GROUPS) {
     const controls = [...surface.root.querySelectorAll<HTMLElement>(group.selector)].filter(
-      (control) => !excluded.has(control) && isElementVisible(control),
+      (control) => !excluded.has(control) && isKnownCookiebotControlAvailable(control),
     );
     for (const control of controls) {
       const state = readControlState(control);
@@ -50,28 +68,50 @@ function planCookiebotPreferences(
         continue;
       }
       if (state === 'on') {
+        const category = knownCategory(control);
         return {
           intent: group.intent,
           target: control,
-          evidence: [`adapter:cookiebot`, `known-control:${group.intent}`, 'state:on'],
+          evidence: [
+            `adapter:cookiebot`,
+            `known-control:${group.intent}`,
+            ...(category ? [`category:${category}`] : []),
+            'state:on',
+          ],
         };
       }
     }
   }
 
-  return allowSave && !unresolved ? planPreferenceAction(surface, true, excluded) : null;
+  if (!allowSave || unresolved) return null;
+  const semanticSave = planPreferenceAction(surface, true, excluded);
+  if (semanticSave) return semanticSave;
+  const allowSelection = [
+    ...surface.root.querySelectorAll<HTMLElement>(
+      '#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowallSelection',
+    ),
+  ].find((control) => !excluded.has(control) && isElementVisible(control));
+  return allowSelection
+    ? {
+        intent: 'savePreferences',
+        target: allowSelection,
+        evidence: ['adapter:cookiebot', 'all-known-optional-controls-off', 'save-selection'],
+      }
+    : null;
 }
 
+const selectorAdapter = createSelectorAdapter({
+  id: 'cookiebot',
+  rootSelectors: ['#CybotCookiebotDialog'],
+  rejectSelectors: ['#CybotCookiebotDialogBodyButtonDecline', '[data-cookiefirst-action="reject"]'],
+  preferenceSelectors: ['#CybotCookiebotDialogBodyLevelButtonCustomize'],
+  verify: verifyCookiebotDocument,
+});
+
 export const cookiebotAdapter = {
-  ...createSelectorAdapter({
-    id: 'cookiebot',
-    rootSelectors: ['#CybotCookiebotDialog'],
-    rejectSelectors: [
-      '#CybotCookiebotDialogBodyButtonDecline',
-      '[data-cookiefirst-action="reject"]',
-    ],
-    preferenceSelectors: ['#CybotCookiebotDialogBodyLevelButtonCustomize'],
-    verify: verifyCookiebotDocument,
-  }),
+  ...selectorAdapter,
+  plan(surface: ConsentSurface) {
+    return selectorAdapter.plan(surface) ?? planCookiebotPreferences(surface, false, new Set());
+  },
   planPreferences: planCookiebotPreferences,
 };

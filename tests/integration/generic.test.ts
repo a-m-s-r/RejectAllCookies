@@ -281,6 +281,38 @@ describe('generic engine', () => {
     expect(engine.handle().actions).toEqual(['savePreferences']);
   });
 
+  it('minimizes first-layer Cookiebot categories when decline and customize are unavailable', () => {
+    document.body.innerHTML = `
+      <div id="CybotCookiebotDialog">
+        <input id="CybotCookiebotDialogBodyLevelButtonNecessary" type="checkbox" checked disabled>
+        <input id="CybotCookiebotDialogBodyLevelButtonPreferences" type="checkbox" checked style="opacity: 0">
+        <input id="CybotCookiebotDialogBodyLevelButtonStatistics" type="checkbox" checked style="opacity: 0">
+        <input id="CybotCookiebotDialogBodyLevelButtonMarketing" type="checkbox" checked style="opacity: 0">
+        <button id="CybotCookiebotDialogBodyLevelButtonLevelOptinAllowallSelection">Allow selection</button>
+        <button id="CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll">Allow all</button>
+      </div>`;
+    const engine = new ConsentEngine();
+    const saved = vi.fn();
+    const accepted = vi.fn();
+    document
+      .querySelector('#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowallSelection')
+      ?.addEventListener('click', saved);
+    document
+      .querySelector('#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll')
+      ?.addEventListener('click', accepted);
+
+    expect(engine.handle().actions).toEqual(['disablePurpose']);
+    expect(engine.handle().actions).toEqual(['disablePurpose']);
+    expect(engine.handle().actions).toEqual(['disablePurpose']);
+    expect(engine.handle().actions).toEqual(['savePreferences']);
+    expect(requiredInput('#CybotCookiebotDialogBodyLevelButtonNecessary').checked).toBe(true);
+    expect(requiredInput('#CybotCookiebotDialogBodyLevelButtonPreferences').checked).toBe(false);
+    expect(requiredInput('#CybotCookiebotDialogBodyLevelButtonStatistics').checked).toBe(false);
+    expect(requiredInput('#CybotCookiebotDialogBodyLevelButtonMarketing').checked).toBe(false);
+    expect(saved).toHaveBeenCalledOnce();
+    expect(accepted).not.toHaveBeenCalled();
+  });
+
   it('blocks Cookiebot saving when a known control state is unresolved', () => {
     document.body.innerHTML =
       '<div id="CybotCookiebotDialog"><button id="CybotCookiebotDialogBodyLevelButtonCustomize">Settings</button></div>';
