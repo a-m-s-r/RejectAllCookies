@@ -2,6 +2,12 @@ import { FrameArbiter } from '../platform/frame-arbiter';
 import type { EngineResult } from '../cmp/types';
 import { purgeLegacyStatusRecords } from '../shared/settings';
 import { isSweepCompleteMessage, type SweepDisplayMessage } from '../shared/sweep-messages';
+import {
+  issueDraftUrl,
+  isManualConsentReport,
+  MANUAL_REPORTS_KEY,
+  type ManualConsentReport,
+} from '../shared/manual-reports';
 
 interface ClaimMessage {
   readonly type: 'claim-consent-action';
@@ -32,6 +38,14 @@ function isEngineResult(value: unknown): value is EngineResult {
     typeof result.reason === 'string' &&
     Array.isArray(result.actions)
   );
+}
+
+function isManualReportMessage(
+  value: unknown,
+): value is { type: 'manual-consent-report'; report: ManualConsentReport } {
+  if (!value || typeof value !== 'object') return false;
+  const message = value as Record<string, unknown>;
+  return message.type === 'manual-consent-report' && isManualConsentReport(message.report);
 }
 
 export default defineBackground(() => {
@@ -76,6 +90,17 @@ export default defineBackground(() => {
         ...(message.summary ? { summary: message.summary } : {}),
       });
     }
+    if (isManualReportMessage(message) && sender.tab?.id !== undefined) {
+      return browser.storage.local.get(MANUAL_REPORTS_KEY).then(async (stored) => {
+        const existing = Array.isArray(stored[MANUAL_REPORTS_KEY])
+          ? stored[MANUAL_REPORTS_KEY].filter(isManualConsentReport)
+          : [];
+        const reports = [...existing, message.report].slice(-100);
+        await browser.storage.local.set({ [MANUAL_REPORTS_KEY]: reports });
+        await browser.tabs.create({ url: issueDraftUrl(message.report) });
+        return { report: message.report, issueUrl: issueDraftUrl(message.report) };
+      });
+    }
     if (message && typeof message === 'object') {
       const record = message as Record<string, unknown>;
       if (
@@ -88,6 +113,15 @@ export default defineBackground(() => {
       }
       if (record.type === 'get-tab-status' && typeof record.tabId === 'number') {
         return Promise.resolve(tabStatuses.get(record.tabId) ?? null);
+      }
+      if (record.type === 'get-manual-reports') {
+        return browser.storage.local
+          .get(MANUAL_REPORTS_KEY)
+          .then((stored) =>
+            Array.isArray(stored[MANUAL_REPORTS_KEY])
+              ? stored[MANUAL_REPORTS_KEY].filter(isManualConsentReport)
+              : [],
+          );
       }
     }
     return undefined;

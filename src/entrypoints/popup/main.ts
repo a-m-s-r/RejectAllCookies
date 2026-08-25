@@ -1,5 +1,10 @@
 import type { EngineResult } from '../../cmp/types';
 import { readSettings, writeSettings } from '../../shared/settings';
+import {
+  isManualConsentReport,
+  issueDraftUrl,
+  type ManualConsentReport,
+} from '../../shared/manual-reports';
 
 const enabled = document.querySelector<HTMLInputElement>('#enabled');
 const paused = document.querySelector<HTMLInputElement>('#paused');
@@ -8,8 +13,47 @@ const status = document.querySelector<HTMLElement>('#status');
 const manageSites = document.querySelector<HTMLButtonElement>('#manage-sites');
 const diagnostics = document.querySelector<HTMLDetailsElement>('#diagnostics');
 const diagnosticText = document.querySelector<HTMLElement>('#diagnostic-text');
-if (!enabled || !paused || !site || !status || !manageSites || !diagnostics || !diagnosticText) {
+const reportModal = document.querySelector<HTMLButtonElement>('#report-modal');
+const reports = document.querySelector<HTMLElement>('#reports');
+const reportCount = document.querySelector<HTMLElement>('#report-count');
+const exportReports = document.querySelector<HTMLButtonElement>('#export-reports');
+const reportList = document.querySelector<HTMLUListElement>('#report-list');
+if (
+  !enabled ||
+  !paused ||
+  !site ||
+  !status ||
+  !manageSites ||
+  !diagnostics ||
+  !diagnosticText ||
+  !reportModal ||
+  !reports ||
+  !reportCount ||
+  !exportReports ||
+  !reportList
+) {
   throw new Error('Popup markup is incomplete');
+}
+
+const reportedModals = (await browser.runtime.sendMessage({
+  type: 'get-manual-reports',
+})) as unknown;
+const reportItems: ManualConsentReport[] = Array.isArray(reportedModals)
+  ? reportedModals.filter(isManualConsentReport)
+  : [];
+if (reportItems.length > 0) {
+  reports.hidden = false;
+  reportCount.textContent = `${String(reportItems.length)} locally saved report(s)`;
+  for (const report of [...reportItems].reverse().slice(0, 10)) {
+    const item = document.createElement('li');
+    const link = document.createElement('a');
+    link.href = issueDraftUrl(report);
+    link.target = '_blank';
+    link.rel = 'noreferrer';
+    link.textContent = new URL(report.url).hostname;
+    item.append(link, ` · ${new Date(report.createdAt).toLocaleString()}`);
+    reportList.append(item);
+  }
 }
 
 const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
@@ -72,6 +116,36 @@ paused.addEventListener('change', () => {
 });
 
 manageSites.addEventListener('click', () => void browser.runtime.openOptionsPage());
+
+reportModal.addEventListener('click', () => {
+  void (async () => {
+    if (tab?.id === undefined) {
+      status.textContent = 'This page cannot be manually reported.';
+      return;
+    }
+    try {
+      const armed = (await browser.tabs.sendMessage(tab.id, {
+        type: 'arm-manual-report',
+      })) as unknown;
+      status.textContent =
+        armed === true
+          ? 'Click the missed consent modal; press Esc to cancel.'
+          : 'Could not arm modal reporting on this page.';
+    } catch {
+      status.textContent = 'This page does not allow manual modal reporting.';
+    }
+  })();
+});
+
+exportReports.addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(reportItems, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'minimum-consent-manual-reports.json';
+  link.click();
+  URL.revokeObjectURL(url);
+});
 
 function formatStatus(value: string): string {
   const labels: Readonly<Record<string, string>> = {

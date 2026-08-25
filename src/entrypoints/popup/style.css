@@ -32,6 +32,24 @@ h1 {
   background: color-mix(in srgb, CanvasText 8%, Canvas);
   padding: 10px;
 }
+button {
+  cursor: pointer;
+  margin: 6px 0;
+  padding: 7px 9px;
+}
+#reports {
+  border-top: 1px solid color-mix(in srgb, CanvasText 20%, Canvas);
+  margin-top: 12px;
+  padding-top: 8px;
+}
+#reports h2 {
+  font-size: 14px;
+  margin: 0 0 4px;
+}
+#report-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
 pre {
   font-size: 11px;
   max-height: 180px;

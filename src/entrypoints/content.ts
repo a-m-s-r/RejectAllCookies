@@ -5,6 +5,7 @@ import type { ConsentAction } from '../core/domain';
 import { readControlState } from '../core/controls/state';
 import { isSweepDisplayMessage } from '../shared/sweep-messages';
 import { createSweepIndicator } from '../ui/sweep-indicator';
+import { accessibleText, matchesConcept } from '../core/classification/text';
 
 const MAX_OBSERVER_LIFETIME_MS = 60_000;
 const STALLED_WORKFLOW_GRACE_MS = 2_500;
@@ -35,8 +36,138 @@ export default defineContentScript({
     let summaryDisplayed = false;
     let pendingAction: ConsentAction | undefined;
     const sweepIndicator = createSweepIndicator(document);
+    let manualReportArmed = false;
+    let manualHighlight: HTMLElement | undefined;
+    let manualHighlightStyle = '';
+    let manualToast: HTMLElement | undefined;
+
+    const clearManualHighlight = () => {
+      if (!manualHighlight) return;
+      manualHighlight.style.cssText = manualHighlightStyle;
+      manualHighlight.removeAttribute('data-minimum-consent-report-target');
+      manualHighlight = undefined;
+      manualHighlightStyle = '';
+    };
+
+    const showManualToast = (message: string) => {
+      manualToast?.remove();
+      manualToast = document.createElement('div');
+      manualToast.setAttribute('role', 'status');
+      manualToast.textContent = message;
+      Object.assign(manualToast.style, {
+        all: 'initial',
+        position: 'fixed',
+        left: '50%',
+        bottom: '20px',
+        transform: 'translateX(-50%)',
+        zIndex: '2147483647',
+        padding: '10px 14px',
+        borderRadius: '8px',
+        background: '#17202a',
+        color: '#fff',
+        font: '13px system-ui, sans-serif',
+        boxShadow: '0 4px 18px rgba(0,0,0,.35)',
+      });
+      document.documentElement.append(manualToast);
+      window.setTimeout(() => {
+        manualToast?.remove();
+        manualToast = undefined;
+      }, 4000);
+    };
+
+    const manualCandidate = (target: EventTarget | null): HTMLElement | null => {
+      if (!(target instanceof Element)) return null;
+      const direct = target.closest<HTMLElement>(
+        'dialog, [role="dialog"], [role="alertdialog"], [aria-modal="true"]',
+      );
+      if (direct && direct !== document.documentElement) return direct;
+      let current: HTMLElement | null =
+        target instanceof HTMLElement ? target : target.parentElement;
+      for (let depth = 0; current && depth < 8; depth += 1, current = current.parentElement) {
+        const style = getComputedStyle(current);
+        if (
+          (style.position === 'fixed' || style.position === 'sticky') &&
+          matchesConcept(accessibleText(current), 'consentContext') &&
+          (current.querySelector('button, [role="button"], input, [role="switch"]') !== null ||
+            matchesConcept(accessibleText(current), 'consentDataContext'))
+        )
+          return current;
+      }
+      return null;
+    };
+
+    const updateManualHighlight = (target: EventTarget | null) => {
+      const candidate = manualCandidate(target);
+      if (candidate === manualHighlight) return;
+      clearManualHighlight();
+      if (!candidate) return;
+      manualHighlight = candidate;
+      manualHighlightStyle = candidate.style.cssText;
+      candidate.setAttribute('data-minimum-consent-report-target', 'true');
+      candidate.style.setProperty('outline', '3px solid #ffb000', 'important');
+      candidate.style.setProperty('cursor', 'crosshair', 'important');
+    };
+
+    const disarmManualReport = () => {
+      manualReportArmed = false;
+      clearManualHighlight();
+      document.removeEventListener('pointermove', onManualPointerMove, true);
+      document.removeEventListener('click', onManualClick, true);
+      document.removeEventListener('keydown', onManualKeyDown, true);
+    };
+
+    const onManualPointerMove = (event: Event) => updateManualHighlight(event.target);
+    const onManualKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        disarmManualReport();
+        showManualToast('Consent modal report cancelled');
+      }
+    };
+    const onManualClick = (event: MouseEvent) => {
+      const candidate = manualCandidate(event.target);
+      if (!candidate) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const text = accessibleText(candidate).slice(0, 2000);
+      const element =
+        `${candidate.tagName.toLowerCase()}${candidate.id ? `#${candidate.id}` : ''}${candidate.className && typeof candidate.className === 'string' ? `.${candidate.className.trim().replace(/\s+/gu, '.')}` : ''}`.slice(
+          0,
+          300,
+        );
+      candidate.style.setProperty('display', 'none', 'important');
+      disarmManualReport();
+      showManualToast('Consent modal hidden; opening a report draft…');
+      void browser.runtime.sendMessage({
+        type: 'manual-consent-report',
+        report: {
+          id: crypto.randomUUID(),
+          url: location.href,
+          title: document.title.slice(0, 300),
+          text,
+          element,
+          createdAt: new Date().toISOString(),
+        },
+      });
+    };
+
+    const armManualReport = () => {
+      if (manualReportArmed) return true;
+      manualReportArmed = true;
+      document.addEventListener('pointermove', onManualPointerMove, true);
+      document.addEventListener('click', onManualClick, true);
+      document.addEventListener('keydown', onManualKeyDown, true);
+      showManualToast('Click the missed consent modal to hide and report it · Esc cancels');
+      return true;
+    };
 
     browser.runtime.onMessage.addListener((message: unknown) => {
+      if (
+        message &&
+        typeof message === 'object' &&
+        (message as { type?: string }).type === 'arm-manual-report'
+      ) {
+        return armManualReport();
+      }
       if (window !== window.top || !isSweepDisplayMessage(message)) return undefined;
       if (message.active) {
         sweepIndicator.show();
