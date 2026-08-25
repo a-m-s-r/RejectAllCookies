@@ -29,6 +29,12 @@ describe('consent surface scoring', () => {
     expect(discoverSurfaces()).toHaveLength(1);
   });
 
+  it('accepts common data-use wording without requiring an explicit cookie label', () => {
+    document.body.innerHTML =
+      '<div role="dialog"><h2>How we use your data</h2><p>Our vendors and partners process information for advertising purposes.</p><button>Reject all</button><button>Agree</button></div>';
+    expect(discoverSurfaces()).toHaveLength(1);
+  });
+
   it('rejects consent-like content embedded in an ordinary page section', () => {
     document.body.innerHTML =
       '<section><h2>Cookie privacy choices documentation</h2><button>Reject all example</button><button>Accept all example</button></section>';
