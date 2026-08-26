@@ -20,6 +20,14 @@ describe('semantic text classification', () => {
     (text) => expect(classifyAction(text)).toBe('rejectAll'),
   );
   it.each([
+    'Decline optional cookies',
+    'Decline non-essential cookies',
+    'Reject optional cookies',
+    'Essential cookies only',
+  ])('recognizes optional-cookie rejection wording %s', (text) =>
+    expect(classifyAction(text)).toBe('rejectAll'),
+  );
+  it.each([
     'Accept all',
     'Accept selected',
     'Allow partners',
